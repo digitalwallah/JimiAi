@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Jimi</string>
+    <string name="accessibility_service_description">Jimi ko screen dekhne aur tap/type karne ki permission dein taaki wo WhatsApp, YouTube, aur baaki apps ko aapki jagah operate kar sake.</string>
+</resources>

@@ -1,0 +1,8 @@
+<resources>
+    <color name="jimi_dark">#0F172A</color>
+    <color name="jimi_accent">#22D3EE</color>
+    <color name="jimi_bg">#111827</color>
+    <color name="jimi_text">#F1F5F9</color>
+    <color name="jimi_bubble_user">#1E293B</color>
+    <color name="jimi_bubble_jimi">#0891B2</color>
+</resources>

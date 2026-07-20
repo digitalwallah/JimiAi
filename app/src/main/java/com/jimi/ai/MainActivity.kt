@@ -183,7 +183,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(48, 24, 48, 0)
         }
         val claudeInput = EditText(this).apply {
-            hint = "Claude API key (console.anthropic.com)"
+            hint = "Gemini API key (aistudio.google.com/apikey)"
             inputType = InputType.TYPE_CLASS_TEXT
             setText(SettingsStore.getClaudeKey(this@MainActivity))
         }

@@ -9,10 +9,14 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * Talks to the real Anthropic API. This is Jimi's "brain":
+ * Talks to Google's Gemini API (aistudio.google.com) — free tier, no credit card needed.
+ * This is Jimi's "brain":
  * - Understands free-form Hinglish/Hindi/English commands
  * - Decides which action to take (open app, send WhatsApp msg, play YouTube video, etc.)
  * - Generates natural chat replies matching a contact's usual language style
+ *
+ * Class name kept as ClaudeApiClient so the rest of the app (CommandRouter etc.)
+ * doesn't need to change — only the underlying API swapped.
  */
 class ClaudeApiClient(private val apiKey: String) {
 
@@ -21,8 +25,9 @@ class ClaudeApiClient(private val apiKey: String) {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val endpoint = "https://api.anthropic.com/v1/messages"
-    private val model = "claude-sonnet-5"
+    private val model = "gemini-2.0-flash"
+    private fun endpoint() =
+        "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
     /**
      * Sends a system + user prompt, returns raw text reply.
@@ -30,21 +35,19 @@ class ClaudeApiClient(private val apiKey: String) {
      */
     fun ask(systemPrompt: String, userMessage: String): String {
         val body = JSONObject().apply {
-            put("model", model)
-            put("max_tokens", 1024)
-            put("system", systemPrompt)
-            put("messages", JSONArray().put(
+            put("system_instruction", JSONObject().apply {
+                put("parts", JSONArray().put(JSONObject().put("text", systemPrompt)))
+            })
+            put("contents", JSONArray().put(
                 JSONObject().apply {
                     put("role", "user")
-                    put("content", userMessage)
+                    put("parts", JSONArray().put(JSONObject().put("text", userMessage)))
                 }
             ))
         }
 
         val request = Request.Builder()
-            .url(endpoint)
-            .addHeader("x-api-key", apiKey)
-            .addHeader("anthropic-version", "2023-06-01")
+            .url(endpoint())
             .addHeader("content-type", "application/json")
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
@@ -52,23 +55,23 @@ class ClaudeApiClient(private val apiKey: String) {
         client.newCall(request).execute().use { response ->
             val responseBody = response.body?.string() ?: "{}"
             if (!response.isSuccessful) {
-                throw RuntimeException("Claude API error ${response.code}: $responseBody")
+                throw RuntimeException("Gemini API error ${response.code}: $responseBody")
             }
             val json = JSONObject(responseBody)
-            val content = json.getJSONArray("content")
+            val candidates = json.optJSONArray("candidates") ?: return ""
+            if (candidates.length() == 0) return ""
+            val content = candidates.getJSONObject(0).getJSONObject("content")
+            val parts = content.getJSONArray("parts")
             val sb = StringBuilder()
-            for (i in 0 until content.length()) {
-                val block = content.getJSONObject(i)
-                if (block.getString("type") == "text") {
-                    sb.append(block.getString("text"))
-                }
+            for (i in 0 until parts.length()) {
+                sb.append(parts.getJSONObject(i).optString("text"))
             }
             return sb.toString()
         }
     }
 
     /**
-     * Asks Claude to classify the user's command into a structured action.
+     * Asks Gemini to classify the user's command into a structured action.
      * Returns JSON like:
      * {"action":"whatsapp_send","contact":"Rahul","message":"..."}
      * {"action":"youtube_play","channel":"MrBeast","query":"latest video"}

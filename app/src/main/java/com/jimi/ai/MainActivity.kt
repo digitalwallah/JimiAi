@@ -174,7 +174,10 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val reply = try {
-                withContext(Dispatchers.IO) { CommandRouter(this@MainActivity).handle(command) }
+                withContext(Dispatchers.IO) {
+                    val recentHistory = messages.dropLast(1).takeLast(6).joinToString("\n") { "${it.sender}: ${it.text}" }
+                    CommandRouter(this@MainActivity).handle(command, recentHistory)
+                }
             } catch (e: Exception) {
                 "Error aa gaya: ${e.message}"
             }

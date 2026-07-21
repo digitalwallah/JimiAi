@@ -31,6 +31,7 @@ class CommandRouter(private val context: Context) {
             }
 
             else -> claude.ask(
+                personaPrompt() + " " +
                 "Tum Jimi ho, ek Android app jo user ke phone pe already install hai. Tumhare paas yeh " +
                 "features PEHLE SE BANE HUE HAIN (yeh sab already kaam karte hain, koi limitation nahi hai): " +
                 "1) WhatsApp pe kisi contact ko unke style me message bhej sakte ho. " +
@@ -50,6 +51,14 @@ class CommandRouter(private val context: Context) {
             )
         }
     }
+
+    /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel. */
+    private fun personaPrompt(): String =
+        when (SettingsStore.getPersona(context)) {
+            "myra" -> "Tum ek warm, caring, thodi playful dost jaisi personality ho — natural Hinglish use karo, " +
+                "reply thoda affectionate aur friendly rakho, lekin over-the-top mat karo."
+            else -> "Tum ek formal, professional, to-the-point assistant ho — reply concise aur seedha rakho."
+        }
 
     private suspend fun handleWhatsApp(decision: org.json.JSONObject, originalCommand: String): String {
         val contactName = decision.optString("contact")

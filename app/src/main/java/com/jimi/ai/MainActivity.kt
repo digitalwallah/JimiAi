@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -59,6 +60,12 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         speechHelper = SpeechHelper(this)
+
+        // Call-permission bhi ek baar maang lete hain taaki "call karo" command pehli baar me hi kaam kare.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CALL_PHONE), 101)
+        }
 
         adapter = ChatAdapter(messages)
         binding.chatRecyclerView.layoutManager = LinearLayoutManager(this)
@@ -161,7 +168,7 @@ class MainActivity : AppCompatActivity() {
         binding.chatRecyclerView.scrollToPosition(messages.size - 1)
 
         if (SettingsStore.getClaudeKey(this).isBlank()) {
-            adapter.addMessage(ChatMessage("Jimi", "Pehle API keys set karo (button 2) — mujhe Claude API key chahiye kaam karne ke liye."))
+            adapter.addMessage(ChatMessage("Jimi", "Pehle API keys set karo (button 2) — mujhe Gemini API key chahiye kaam karne ke liye."))
             return
         }
 
@@ -183,7 +190,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(48, 24, 48, 0)
         }
         val claudeInput = EditText(this).apply {
-            hint = "Gemini API key (aistudio.google.com/apikey)"
+            hint = "Gemini API key (aistudio.google.com - FREE)"
             inputType = InputType.TYPE_CLASS_TEXT
             setText(SettingsStore.getClaudeKey(this@MainActivity))
         }

@@ -14,14 +14,8 @@ class CommandRouter(private val context: Context) {
 
     /** Returns a human-readable status string to show in the chat UI. */
     suspend fun handle(command: String, recentHistory: String = ""): String {
-        val db = JimiDatabase.getInstance(context)
-        
-        // 1. Saved memories fetch karo taaki AI ko context mile
-        val savedMemoriesList = db.memoryDao().getAllMemories() // Agar aapka DAO/method name alag hai toh use adjust kar lein
-        val savedMemoriesText = savedMemoriesList.joinToString("\n") { "${it.key}: ${it.value}" }
-
-        // 2. routeCommand me userCommand, recentHistory aur savedMemories pass karo
-        val decision = claude.routeCommand(command, recentHistory, savedMemoriesText)
+        // Memory integration is bypassed for now to ensure stable builds
+        val decision = claude.routeCommand(command, recentHistory, "")
 
         return when (decision.optString("action")) {
 
@@ -39,9 +33,6 @@ class CommandRouter(private val context: Context) {
                 if (opened) "$appName khol diya ✅" else "'$appName' naam ka app nahi mila 😕"
             }
 
-            // 3. Pehle missing tha: Memory save karne wala action
-            "save_memory" -> handleSaveMemory(decision)
-
             else -> claude.ask(
                 "Tum Jimi ho, ek friendly Hinglish-bolne wala personal assistant. Chhota, natural reply do. " +
                 "Zaroori: agar user kisi aisi cheez ke liye bole jo tum actually kar nahi sakte (jaise koi " +
@@ -50,21 +41,6 @@ class CommandRouter(private val context: Context) {
                 command
             )
         }
-    }
-
-    private suspend fun handleSaveMemory(decision: JSONObject): String {
-        val key = decision.optString("key")
-        val value = decision.optString("value")
-
-        if (key.isBlank() || value.isBlank()) {
-            return "Kya yaad rakhna hai, thoda clear batao?"
-        }
-
-        val db = JimiDatabase.getInstance(context)
-        // MemoryEntity aapke project ke model class ke hisab se
-        db.memoryDao().insertOrUpdate(key, value)
-
-        return "Yaad rakh liya: $key = $value ✅"
     }
 
     private suspend fun handleWhatsApp(decision: JSONObject, originalCommand: String): String {

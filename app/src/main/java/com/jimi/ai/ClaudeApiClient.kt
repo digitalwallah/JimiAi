@@ -15,7 +15,7 @@ class ClaudeApiClient(private val apiKey: String) {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val model = "gemini-1.5-flash"
+    private val model = "gemini-3.1-flash-lite"
 
     private fun endpoint(): String {
         return "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"

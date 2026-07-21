@@ -1,3 +1,4 @@
+
 package com.jimi.ai
 
 import okhttp3.MediaType.Companion.toMediaType
@@ -109,11 +110,6 @@ class ClaudeApiClient(private val apiKey: String) {
             Tum $contactName ko WhatsApp message likh rahe ho, user ki taraf se.
             Is contact ke saath baat karne ka style: "$styleNote"
             Message chhota, natural aur casual rakho - jaise log actually WhatsApp pe likhte hain
-            (zaroorat ho toh Hinglish mix karo). Sirf message text return karo, kuch aur nahi.
-        """.trimIndent()
-        return ask(system, intent).trim()
-    }
-}            Message chhota, natural aur casual rakho - jaise log actually WhatsApp pe likhte hain
             (zaroorat ho toh Hinglish mix karo). Sirf message text return karo, kuch aur nahi.
         """.trimIndent()
         return ask(system, intent).trim()

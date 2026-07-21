@@ -25,6 +25,7 @@ class SpeechHelper(context: Context) {
             if (status == TextToSpeech.SUCCESS) {
                 ttsReady = true
                 tts?.language = Locale("hi", "IN")
+                tts?.setSpeechRate(0.85f)   // thoda slow, samajhne me aasaan
                 selectMaleVoice()
             }
         }

@@ -81,6 +81,17 @@ class ClaudeApiClient(private val apiKey: String) {
             6. chat_reply -> {"action":"chat_reply"}
             7. save_memory -> {"action":"save_memory","key":"<kis baare me yaad rakhna hai>","value":"<kya info yaad rakhni hai>"}
 
+            Important rules:
+            - Contact naam aur app naam (whatsapp_send, make_call, open_app ke andar) HAMESHA Roman/English
+              letters mein hi return karo, chahe user kisi bhi script/bhasha mein bole (Hindi, Devanagari,
+              Hinglish). Phone ki contact list aur app names English script mein saved hote hain, isliye
+              transliterate karke do. Example: user "होम को कॉल करो" bole toh contact field mein "Home"
+              likhna hai, "होम" nahi likhna.
+            - youtube_play ke query field mein user ke exact words/keywords use karo jaise unhone bole.
+              Apna guess ya loosely-related topic mat banao. Agar user ne specific title, naam, ya keyword
+              diya hai, wahi verbatim (ho sake toh us bhasha mein bhi jisme original video ka title likha
+              hota hai) query mein daalo.
+
             $memorySection$historySection
             Sirf raw JSON return karo.
         """.trimIndent()

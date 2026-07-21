@@ -1,11 +1,10 @@
 package com.jimi.ai
 
 import android.content.Context
-import org.json.JSONObject
 
 /**
  * The glue: takes a raw Hinglish/Hindi/English command from the user,
- * asks Claude/Gemini to classify it, then dispatches to the right module.
+ * asks Claude to classify it, then dispatches to the right module.
  */
 class CommandRouter(private val context: Context) {
 
@@ -14,9 +13,7 @@ class CommandRouter(private val context: Context) {
 
     /** Returns a human-readable status string to show in the chat UI. */
     suspend fun handle(command: String, recentHistory: String = ""): String {
-        // Memory integration is bypassed for now to ensure stable builds
-        val decision = claude.routeCommand(command, recentHistory, "")
-
+        val decision = claude.routeCommand(command, recentHistory)
         return when (decision.optString("action")) {
 
             "whatsapp_send" -> handleWhatsApp(decision, command)
@@ -34,16 +31,27 @@ class CommandRouter(private val context: Context) {
             }
 
             else -> claude.ask(
-                "Tum Jimi ho, ek friendly Hinglish-bolne wala personal assistant. Chhota, natural reply do. " +
-                "Zaroori: agar user kisi aisi cheez ke liye bole jo tum actually kar nahi sakte (jaise koi " +
-                "device action jiske liye koi tool available nahi hai), toh kabhi mat bolo ki 'kar diya' ya " +
-                "'kar raha hoon' — saaf bata do ki abhi yeh feature available nahi hai.",
+                "Tum Jimi ho, ek Android app jo user ke phone pe already install hai. Tumhare paas yeh " +
+                "features PEHLE SE BANE HUE HAIN (yeh sab already kaam karte hain, koi limitation nahi hai): " +
+                "1) WhatsApp pe kisi contact ko unke style me message bhej sakte ho. " +
+                "2) YouTube pe kisi channel/topic ka video dhoondh kar play kar sakte ho. " +
+                "3) Phone ki kisi bhi installed app ko naam bol kar khol sakte ho. " +
+                "4) Contact ko call laga sakte ho. " +
+                "5) Screen pe dikh rahe kisi bhi button ko tap kar sakte ho. " +
+                "6) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
+                "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
+                "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
+                "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
+                "Listening' ON karna hai (agar pehle se ON nahi hai). Kabhi mat bolo ki yeh feature nahi hai " +
+                "ya tumhe 'active rehna padta hai' - yeh sab already automatic hai jab switch ON ho. " +
+                "Chhota, natural Hinglish reply do. Agar user kisi aisi cheez ke liye bole jo upar list me " +
+                "nahi hai (jaise koi bilkul naya device action), tabhi saaf bata do ki abhi available nahi hai.",
                 command
             )
         }
     }
 
-    private suspend fun handleWhatsApp(decision: JSONObject, originalCommand: String): String {
+    private suspend fun handleWhatsApp(decision: org.json.JSONObject, originalCommand: String): String {
         val contactName = decision.optString("contact")
         if (contactName.isBlank()) return "Kis contact ko message karna hai, naam batao?"
 
@@ -56,6 +64,8 @@ class CommandRouter(private val context: Context) {
 
         val intentText = decision.optString("message").ifBlank { originalCommand }
         val draftedMessage = if (decision.optString("message").isNotBlank()) {
+            // User ne pehle hi bata diya ki kya likhna hai - iske words ke saath chedkhaani nahi,
+            // seedha wahi bhejo (bas thoda clean-up, naya content generate mat karo).
             intentText.trim()
         } else {
             claude.generateStyledReply(contactName, styleNote, intentText)
@@ -71,7 +81,7 @@ class CommandRouter(private val context: Context) {
         }
     }
 
-    private fun handleYouTube(decision: JSONObject): String {
+    private fun handleYouTube(decision: org.json.JSONObject): String {
         val channel = decision.optString("channel").ifBlank { null }
         val query = decision.optString("query")
         val result = youtube.findVideo(query, channel)
@@ -80,7 +90,7 @@ class CommandRouter(private val context: Context) {
         return "Playing: ${result.title} ▶️"
     }
 
-    private fun handleTapScreen(decision: JSONObject): String {
+    private fun handleTapScreen(decision: org.json.JSONObject): String {
         val targetText = decision.optString("target_text")
         if (targetText.isBlank()) return "Kaunsa button dabana hai, thoda clear batao?"
 
@@ -94,7 +104,7 @@ class CommandRouter(private val context: Context) {
         return if (success) "'$targetText' dabaya ✅" else "'$targetText' mila lekin tap nahi ho paaya."
     }
 
-    private fun handleCall(decision: JSONObject): String {
+    private fun handleCall(decision: org.json.JSONObject): String {
         val contactName = decision.optString("contact")
         if (contactName.isBlank()) return "Kise call karna hai, naam batao?"
 
@@ -106,19 +116,16 @@ class CommandRouter(private val context: Context) {
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
         return if (hasCallPermission) {
-            val intent = android.content.Intent(
-                android.content.Intent.ACTION_CALL,
-                android.net.Uri.parse("tel:$phone")
-            ).apply {
+            val intent = android.content.Intent(android.content.Intent.ACTION_CALL,
+                android.net.Uri.parse("tel:$phone")).apply {
                 flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(intent)
             "$contactName ko call laga raha hoon 📞"
         } else {
-            val intent = android.content.Intent(
-                android.content.Intent.ACTION_DIAL,
-                android.net.Uri.parse("tel:$phone")
-            ).apply {
+            // Permission nahi hai toh fallback - dialer khol do, user khud tap kare.
+            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL,
+                android.net.Uri.parse("tel:$phone")).apply {
                 flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(intent)

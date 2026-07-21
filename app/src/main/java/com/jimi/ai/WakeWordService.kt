@@ -70,6 +70,7 @@ class WakeWordService : Service() {
         speechHelper = SpeechHelper(this)
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification("Jimi sun raha hai... 👂"))
+        setupRecognizer()
         startListeningCycle()
     }
 
@@ -107,10 +108,10 @@ class WakeWordService : Service() {
         manager.notify(NOTIF_ID, buildNotification(text))
     }
 
-    /** Starts (or restarts) one short listening burst. */
-    private fun startListeningCycle() {
+    /** Recognizer object ek hi baar banate hain (baar-baar destroy-create karna hi
+     * screen-off reliability ka sabse bada dushman tha). */
+    private fun setupRecognizer() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) return
-        recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(object : RecognitionListener {
                 override fun onResults(results: Bundle?) {
@@ -129,13 +130,23 @@ class WakeWordService : Service() {
                 override fun onPartialResults(partialResults: Bundle?) {}
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
-            startListening(
+        }
+    }
+
+    /** Same recognizer instance pe dobara startListening call karta hai - naya object nahi banata. */
+    private fun startListeningCycle() {
+        val rec = recognizer ?: return
+        try {
+            rec.startListening(
                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 }
             )
+        } catch (e: Exception) {
+            // Kabhi-kabhi "already listening" jaisi state aa jaati hai - reset karke retry.
+            handler.postDelayed({ setupRecognizer(); startListeningCycle() }, 800)
         }
     }
 

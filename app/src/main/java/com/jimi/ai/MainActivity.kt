@@ -9,8 +9,11 @@ import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.text.InputType
 import android.view.accessibility.AccessibilityManager
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -202,14 +205,29 @@ class MainActivity : AppCompatActivity() {
             inputType = InputType.TYPE_CLASS_TEXT
             setText(SettingsStore.getYoutubeKey(this@MainActivity))
         }
+
+        val personaLabel = TextView(this).apply {
+            text = "Jimi ka style:"
+            setPadding(0, 32, 0, 8)
+        }
+        val personaOptions = listOf("Jarvis (formal)", "MYRA (warm/casual)")
+        val personaSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, personaOptions)
+            setSelection(if (SettingsStore.getPersona(this@MainActivity) == "myra") 1 else 0)
+        }
+
         layout.addView(claudeInput)
         layout.addView(youtubeInput)
+        layout.addView(personaLabel)
+        layout.addView(personaSpinner)
 
         AlertDialog.Builder(this)
             .setTitle("Jimi Settings")
             .setView(layout)
             .setPositiveButton("Save") { _, _ ->
                 SettingsStore.saveKeys(this, claudeInput.text.toString().trim(), youtubeInput.text.toString().trim())
+                val chosenPersona = if (personaSpinner.selectedItemPosition == 1) "myra" else "jarvis"
+                SettingsStore.setPersona(this, chosenPersona)
             }
             .setNegativeButton("Cancel", null)
             .show()

@@ -12,7 +12,9 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.core.app.NotificationCompat
-import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class WakeWordService : Service() {
 
@@ -59,7 +61,7 @@ class WakeWordService : Service() {
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
             recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN") // Hinglish / Hindi support
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             }
 
@@ -71,7 +73,6 @@ class WakeWordService : Service() {
                 override fun onEndOfSpeech() {}
 
                 override fun onError(error: Int) {
-                    // Error hone par loop restart hoga taaki listening ruk na jaaye
                     if (isListening) {
                         startListeningLoop()
                     }
@@ -83,7 +84,6 @@ class WakeWordService : Service() {
                         val command = matches[0]
                         processCommand(command)
                     }
-                    // Result milne ke baad dubara listening start karna
                     if (isListening) {
                         startListeningLoop()
                     }
@@ -101,9 +101,8 @@ class WakeWordService : Service() {
     }
 
     private fun processCommand(command: String) {
-        // Direct Command Router ko command bhej do
         val router = CommandRouter(applicationContext)
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.IO).launch {
             router.handle(command)
         }
     }

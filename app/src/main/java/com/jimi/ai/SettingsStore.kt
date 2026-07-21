@@ -34,4 +34,14 @@ object SettingsStore {
 
     fun isAlwaysListeningEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("always_listening", false)
+
+    /** Persona controls Jimi's reply tone. "jarvis" = formal/concise, "myra" = warm/casual/Hinglish.
+     * Default is "jarvis" to match existing behavior — nothing changes until user picks MYRA mode. */
+    fun setPersona(context: Context, persona: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("persona", persona).apply()
+    }
+
+    fun getPersona(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("persona", "jarvis") ?: "jarvis"
 }

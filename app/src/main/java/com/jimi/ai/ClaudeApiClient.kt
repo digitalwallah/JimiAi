@@ -85,10 +85,12 @@ class ClaudeApiClient(private val apiKey: String) {
             koi extra text nahi, koi markdown fence nahi.
 
             Possible actions:
-            1. whatsapp_send -> {"action":"whatsapp_send","contact":"<naam jaisa user ne bola>","message":"<jo bhejna hai uska matlab, tum apne words me nahi likhna, message field khali chhodo agar user ne exact content nahi diya>"}
-            2. youtube_play -> {"action":"youtube_play","channel":"<channel ka naam agar bola>","query":"<search query>"}
+            1. whatsapp_send -> {"action":"whatsapp_send","contact":"<naam jaisa user ne bola>","message":"<AGAR user ne kuch specific bolne ko bola hai (jaise 'bolo main aa raha hu' ya 'likho ki kal milte hain'), toh us content ko YAHAN HOOBAHOO/almost-exact nikaalo, apni taraf se naya mat likho. Agar user ne sirf general instruction di hai jaise 'Rahul ko bolo main busy hu' toh 'main busy hu' extract karo. Sirf tab khali chhodo jab user ne bilkul bhi bataya na ho ki kya kehna hai (jaise sirf 'Rahul ko message karo')>"}
+            2. youtube_play -> {"action":"youtube_play","channel":"<agar user ne channel ka naam liya hai wahi yahan daalo, exact spelling jaisi boli waisi>","query":"<video kis baare me chahiye - agar 'latest video' bola hai toh 'latest video' likho, agar koi topic bola hai toh wahi topic likho>"}
             3. open_app -> {"action":"open_app","app_name":"<app ka naam>"}
-            4. chat_reply -> {"action":"chat_reply"}  (jab user sirf baat kar raha ho, koi device action nahi chahiye)
+            4. make_call -> {"action":"make_call","contact":"<naam jaisa user ne bola>"}
+            5. tap_screen -> {"action":"tap_screen","target_text":"<screen pe jo button/text dikh raha hai jise dabana hai, jaisa user ne bola waisa hi>"}  (jab user kisi current-open app me kisi button/cheez ko dabane ko bole, jaise 'back button dabao', 'Send pe click karo', 'notification band karo')
+            6. chat_reply -> {"action":"chat_reply"}  (jab user sirf baat kar raha ho, koi device action nahi chahiye)
 
             Sirf raw JSON return karo.
         """.trimIndent()
@@ -107,6 +109,11 @@ class ClaudeApiClient(private val apiKey: String) {
             Tum $contactName ko WhatsApp message likh rahe ho, user ki taraf se.
             Is contact ke saath baat karne ka style: "$styleNote"
             Message chhota, natural aur casual rakho - jaise log actually WhatsApp pe likhte hain
+            (zaroorat ho toh Hinglish mix karo). Sirf message text return karo, kuch aur nahi.
+        """.trimIndent()
+        return ask(system, intent).trim()
+    }
+}            Message chhota, natural aur casual rakho - jaise log actually WhatsApp pe likhte hain
             (zaroorat ho toh Hinglish mix karo). Sirf message text return karo, kuch aur nahi.
         """.trimIndent()
         return ask(system, intent).trim()

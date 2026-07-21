@@ -3,71 +3,96 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0F172A"
-    android:padding="20dp">
+    android:padding="16dp">
 
-    <!-- Top Status Header -->
+    <!-- Top Title Header -->
     <LinearLayout
         android:id="@+id/headerLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginTop="30dp">
+        android:layout_marginTop="16dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="JIMI AI"
             android:textColor="#38BDF8"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.1" />
+            android:textSize="26sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Aapki aawaz sunne ke liye taiyaar..."
+            android:text="Bol kar ya likh kar command dein"
             android:textColor="#94A3B8"
-            android:textSize="14sp"
-            android:layout_marginTop="6dp" />
+            android:textSize="13sp"
+            android:layout_marginTop="4dp" />
     </LinearLayout>
 
-    <!-- Center Big AI Voice Assistant Circle (Standard Built-in Resource used) -->
+    <!-- Center Mic Visualizer -->
     <FrameLayout
-        android:layout_width="220dp"
-        android:layout_height="220dp"
-        android:layout_centerInParent="true"
-        android:background="@android:drawable/btn_default_small"
-        android:elevation="12dp">
+        android:id="@+id/micContainer"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_centerInParent="true">
 
         <ImageView
             android:id="@+id/btnMic"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
             android:layout_gravity="center"
             android:src="@android:drawable/ic_btn_speak_now"
             android:contentDescription="Mic Button" />
     </FrameLayout>
 
-    <!-- Bottom Command Status Card -->
+    <!-- Response Display Card -->
+    <TextView
+        android:id="@+id/tvLastResponse"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/bottomBar"
+        android:layout_below="@id/micContainer"
+        android:layout_marginVertical="12dp"
+        android:background="#1E293B"
+        android:padding="14dp"
+        android:textColor="#F8FAFC"
+        android:textSize="15sp"
+        android:gravity="center"
+        android:text="Main aapki kya madad karoon?" />
+
+    <!-- Bottom Input Bar (Text + Send Button) -->
     <LinearLayout
+        android:id="@+id/bottomBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:background="#1E293B"
-        android:orientation="vertical"
-        android:padding="18dp"
-        android:layout_marginBottom="20dp">
+        android:padding="8dp">
 
-        <TextView
-            android:id="@+id/tvLastResponse"
-            android:layout_width="match_parent"
+        <EditText
+            android:id="@+id/etCommand"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Bolne ke liye bas kahiye: 'Call bhaiya' ya mic tap karein."
-            android:textColor="#F8FAFC"
-            android:textSize="16sp"
-            android:gravity="center" />
+            android:layout_weight="1"
+            android:hint="Type command here..."
+            android:textColorHint="#64748B"
+            android:textColor="#FFFFFF"
+            android:background="@null"
+            android:padding="10dp"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btnSend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Send"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#0284C7" />
     </LinearLayout>
 
 </RelativeLayout>

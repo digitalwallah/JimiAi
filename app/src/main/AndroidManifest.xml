@@ -19,6 +19,9 @@
     <!-- Voice input (mic button) aur voice output (Jimi bol ke reply de sake) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Seedha call lagane ke liye (permission diye bina Jimi sirf dialer kholega) -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+
     <!-- Always-listening background wake-word service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />

@@ -1,98 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F172A"
+    android:orientation="vertical"
+    android:background="@color/jimi_bg"
     android:padding="16dp">
 
-    <!-- Top Title Header -->
-    <LinearLayout
-        android:id="@+id/headerLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:layout_marginTop="16dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="JIMI AI"
-            android:textColor="#38BDF8"
-            android:textSize="26sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Bol kar ya likh kar command dein"
-            android:textColor="#94A3B8"
-            android:textSize="13sp"
-            android:layout_marginTop="4dp" />
-    </LinearLayout>
-
-    <!-- Center Mic Visualizer -->
-    <FrameLayout
-        android:id="@+id/micContainer"
-        android:layout_width="160dp"
-        android:layout_height="160dp"
-        android:layout_centerInParent="true">
-
-        <ImageView
-            android:id="@+id/btnMic"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_gravity="center"
-            android:src="@android:drawable/ic_btn_speak_now"
-            android:contentDescription="Mic Button" />
-    </FrameLayout>
-
-    <!-- Response Display Card -->
     <TextView
-        android:id="@+id/tvLastResponse"
-        android:layout_width="match_parent"
+        android:id="@+id/titleText"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_above="@id/bottomBar"
-        android:layout_below="@id/micContainer"
-        android:layout_marginVertical="12dp"
-        android:background="#1E293B"
-        android:padding="14dp"
-        android:textColor="#F8FAFC"
-        android:textSize="15sp"
-        android:gravity="center"
-        android:text="Main aapki kya madad karoon?" />
+        android:text="Jimi"
+        android:textColor="@color/jimi_accent"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="4dp" />
 
-    <!-- Bottom Input Bar (Text + Send Button) -->
-    <LinearLayout
-        android:id="@+id/bottomBar"
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Accessibility service: OFF"
+        android:textColor="#94A3B8"
+        android:textSize="12sp"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnEnableAccessibility"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="#1E293B"
-        android:padding="8dp">
+        android:text="1. Accessibility Permission On Karo"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:id="@+id/btnSettings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="2. API Keys Set Karo"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/switchAlwaysListening"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="3. Always Listening (\'Jimi\' bolke jagao, screen off ho tab bhi)"
+        android:textColor="@color/jimi_text"
+        android:layout_marginBottom="8dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/chatRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
 
         <EditText
-            android:id="@+id/etCommand"
+            android:id="@+id/commandInput"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Type command here..."
+            android:hint="Jimi ko command do... jaise 'Rahul ko WhatsApp pe bolo main 10 min me aata hu'"
+            android:textColor="@color/jimi_text"
             android:textColorHint="#64748B"
-            android:textColor="#FFFFFF"
-            android:background="@null"
-            android:padding="10dp"
-            android:textSize="15sp" />
+            android:padding="12dp"
+            android:background="@color/jimi_bubble_user" />
+
+        <Button
+            android:id="@+id/btnMic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🎤"
+            android:layout_marginStart="6dp" />
 
         <Button
             android:id="@+id/btnSend"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Send"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#0284C7" />
+            android:text="Bhejo"
+            android:layout_marginStart="6dp" />
     </LinearLayout>
 
-</RelativeLayout>
+</LinearLayout>

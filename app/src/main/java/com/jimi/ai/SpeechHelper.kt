@@ -25,7 +25,27 @@ class SpeechHelper(context: Context) {
             if (status == TextToSpeech.SUCCESS) {
                 ttsReady = true
                 tts?.language = Locale("hi", "IN")
+                selectMaleVoice()
             }
+        }
+    }
+
+    /** Android voices don't have a strict "gender" field, so we match by name pattern
+     * (most TTS engines name their voices like "hi-in-x-hib-network#male_1"). Falls back
+     * to the default voice if no clearly-male voice is found for Hindi/English-India. */
+    private fun selectMaleVoice() {
+        val engine = tts ?: return
+        val voices = engine.voices ?: return
+        val maleVoice = voices.firstOrNull {
+            (it.locale.language == "hi" || it.locale.country == "IN") &&
+                it.name.contains("male", ignoreCase = true) &&
+                !it.name.contains("female", ignoreCase = true)
+        }
+        if (maleVoice != null) {
+            engine.voice = maleVoice
+        } else {
+            // Kuch devices pe pitch thoda kam karne se awaaz zyada "ladke jaisi" lagti hai.
+            engine.setPitch(0.85f)
         }
     }
 

@@ -85,6 +85,23 @@ class WakeWordService : Service() {
         speechHelper.shutdown()
     }
 
+    /** FuntouchOS/MIUI jaise OEMs app swipe hote hi service ko turant maar dete hain.
+     * Ek chhota alarm schedule karte hain jo kuch second baad service ko wapas zinda kar de. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        val restartIntent = Intent(applicationContext, WakeWordService::class.java)
+        val pendingIntent = PendingIntent.getService(
+            applicationContext, 1, restartIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            android.os.SystemClock.elapsedRealtime() + 1000,
+            pendingIntent
+        )
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(

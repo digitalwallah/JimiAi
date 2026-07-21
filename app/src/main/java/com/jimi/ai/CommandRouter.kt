@@ -12,8 +12,8 @@ class CommandRouter(private val context: Context) {
     private val youtube = YouTubeHelper(SettingsStore.getYoutubeKey(context))
 
     /** Returns a human-readable status string to show in the chat UI. */
-    suspend fun handle(command: String): String {
-        val decision = claude.routeCommand(command)
+    suspend fun handle(command: String, recentHistory: String = ""): String {
+        val decision = claude.routeCommand(command, recentHistory)
         return when (decision.optString("action")) {
 
             "whatsapp_send" -> handleWhatsApp(decision, command)
@@ -92,6 +92,7 @@ class CommandRouter(private val context: Context) {
         val success = service.clickNode(node)
         return if (success) "'$targetText' dabaya ✅" else "'$targetText' mila lekin tap nahi ho paaya."
     }
+
     private fun handleCall(decision: org.json.JSONObject): String {
         val contactName = decision.optString("contact")
         if (contactName.isBlank()) return "Kise call karna hai, naam batao?"

@@ -15,9 +15,11 @@ class ClaudeApiClient(private val apiKey: String) {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val model = "gemini-3.1-flash-lite"
-    private fun endpoint() =
-        "https://googleapis.com\(model:generateContent?key=\)apiKey"
+    private val model = "gemini-1.5-flash"
+
+    private fun endpoint(): String {
+        return "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+    }
 
     fun ask(systemPrompt: String, userMessage: String): String {
         val body = JSONObject().apply {
@@ -41,7 +43,7 @@ class ClaudeApiClient(private val apiKey: String) {
         client.newCall(request).execute().use { response ->
             val responseBody = response.body?.string() ?: "{}"
             if (!response.isSuccessful) {
-                throw RuntimeException("Gemini API error \({response.code}:\)responseBody")
+                throw RuntimeException("Gemini API error ${response.code}:$responseBody")
             }
             val json = JSONObject(responseBody)
             val candidates = json.optJSONArray("candidates") ?: return ""
@@ -57,6 +59,9 @@ class ClaudeApiClient(private val apiKey: String) {
     }
 
     fun routeCommand(userCommand: String, recentHistory: String = "", savedMemories: String = ""): JSONObject {
+        val memorySection = if (savedMemories.isNotBlank()) "User ki pehle se yaad rakhi hui baatein (Memories):\n$savedMemories\n" else ""
+        val historySection = if (recentHistory.isNotBlank()) "Recent conversation:\n$recentHistory\n" else ""
+
         val system = """
             Tum Jimi ho, ek Android automation assistant ka "brain". User Hindi/English/Hinglish mix me
             command dega. Tumhara kaam hai command ko classify karke SIRF ek JSON object return karna,
@@ -74,10 +79,9 @@ class ClaudeApiClient(private val apiKey: String) {
             4. make_call -> {"action":"make_call","contact":"<naam jaisa user ne bola>"}
             5. tap_screen -> {"action":"tap_screen","target_text":"<screen button text>"}
             6. chat_reply -> {"action":"chat_reply"}
-            7. save_memory -> {"action":"save_memory","key":"<kis baare me yaad rakhna hai, jaise 'bhaiya_ka_naam' ya 'home_address'>","value":"<kya info yaad rakhni hai, jaise 'Rahul' ya 'Sector 62'>"}
+            7. save_memory -> {"action":"save_memory","key":"<kis baare me yaad rakhna hai>","value":"<kya info yaad rakhni hai>"}
 
-            \${if (savedMemories.isNotBlank()) "User ki pehle se yaad rakhi hui baatein (Memories):\n\$savedMemories\n" else ""}
-            \({if (recentHistory.isNotBlank()) "Recent conversation:\n\)recentHistory\n" else ""}
+            $memorySection$historySection
             Sirf raw JSON return karo.
         """.trimIndent()
 

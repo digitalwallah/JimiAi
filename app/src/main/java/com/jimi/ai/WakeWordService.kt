@@ -7,6 +7,8 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.IBinder
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -21,6 +23,7 @@ class WakeWordService : Service() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var recognizerIntent: Intent? = null
     private var isListening = false
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate() {
         super.onCreate()
@@ -30,7 +33,7 @@ class WakeWordService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!isListening) {
-            startListeningLoop()
+            startListeningWithDelay()
         }
         return START_STICKY
     }
@@ -40,15 +43,15 @@ class WakeWordService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Jimi Background Listener",
+                "Jimi Service",
                 NotificationManager.IMPORTANCE_LOW
             )
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Jimi Sun Raha Hai 🎙️")
-            .setContentText("Bina button dabaye aap command de sakte hain...")
+            .setContentTitle("Jimi Active")
+            .setContentText("Listening for commands...")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .build()
@@ -62,7 +65,6 @@ class WakeWordService : Service() {
             recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             }
 
             speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -73,20 +75,16 @@ class WakeWordService : Service() {
                 override fun onEndOfSpeech() {}
 
                 override fun onError(error: Int) {
-                    if (isListening) {
-                        startListeningLoop()
-                    }
+                    // Lag rokne ke liye 1 second ruk kar restart karenge
+                    scheduleRestart()
                 }
 
                 override fun onResults(results: Bundle?) {
                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     if (!matches.isNullOrEmpty()) {
-                        val command = matches[0]
-                        processCommand(command)
+                        processCommand(matches[0])
                     }
-                    if (isListening) {
-                        startListeningLoop()
-                    }
+                    scheduleRestart()
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {}
@@ -95,9 +93,20 @@ class WakeWordService : Service() {
         }
     }
 
-    private fun startListeningLoop() {
-        isListening = true
-        speechRecognizer?.startListening(recognizerIntent)
+    private fun scheduleRestart() {
+        if (isListening) {
+            handler.postDelayed({ startListeningWithDelay() }, 1000)
+        }
+    }
+
+    private fun startListeningWithDelay() {
+        try {
+            isListening = true
+            speechRecognizer?.startListening(recognizerIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            scheduleRestart()
+        }
     }
 
     private fun processCommand(command: String) {
@@ -110,6 +119,7 @@ class WakeWordService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isListening = false
+        handler.removeCallbacksAndMessages(null)
         speechRecognizer?.destroy()
     }
 

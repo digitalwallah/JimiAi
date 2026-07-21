@@ -33,7 +33,7 @@
             android:layout_marginTop="6dp" />
     </LinearLayout>
 
-    <!-- Center Big AI Voice Assistant Circle -->
+    <!-- Center Big AI Voice Assistant Circle (Standard Built-in Resource used) -->
     <FrameLayout
         android:layout_width="220dp"
         android:layout_height="220dp"
@@ -50,7 +50,7 @@
             android:contentDescription="Mic Button" />
     </FrameLayout>
 
-    <!-- Bottom Command / Chat Status Card -->
+    <!-- Bottom Command Status Card -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

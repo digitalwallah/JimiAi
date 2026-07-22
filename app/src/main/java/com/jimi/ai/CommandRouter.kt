@@ -74,13 +74,20 @@ class CommandRouter(private val context: Context) {
         return reply
     }
 
-    /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel. */
-    private fun personaPrompt(): String =
-        when (SettingsStore.getPersona(context)) {
+    /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel.
+     * Dono mein mood-aware acknowledgment bhi add hai - agar user ke message mein emotional cue ho
+     * (tired, bura din, khush, stressed, etc.), toh command execute karne se pehle usko thoda
+     * acknowledge kare, phir kaam kare. */
+    private fun personaPrompt(): String {
+        val moodNote = "Agar user ke message mein koi emotional cue ho (jaise 'tired hoon', 'bura din tha', " +
+            "'khush hoon', 'stress ho raha hai'), toh seedha kaam pe mat kudo - pehle ek chhoti si " +
+            "acknowledgment line do (over-the-top nahi, natural), phir agar koi command bhi ho usse execute karo."
+        return when (SettingsStore.getPersona(context)) {
             "myra" -> "Tum ek warm, caring, thodi playful dost jaisi personality ho — natural Hinglish use karo, " +
-                "reply thoda affectionate aur friendly rakho, lekin over-the-top mat karo."
-            else -> "Tum ek formal, professional, to-the-point assistant ho — reply concise aur seedha rakho."
+                "reply thoda affectionate aur friendly rakho, lekin over-the-top mat karo. $moodNote"
+            else -> "Tum ek formal, professional, to-the-point assistant ho — reply concise aur seedha rakho. $moodNote"
         }
+    }
 
     private suspend fun handleWhatsApp(decision: org.json.JSONObject, originalCommand: String): String {
         val contactName = decision.optString("contact")

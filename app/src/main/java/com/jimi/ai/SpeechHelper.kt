@@ -61,8 +61,20 @@ class SpeechHelper(context: Context) {
 
     fun speak(text: String) {
         if (ttsReady) {
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jimi_reply")
+            tts?.speak(cleanForSpeech(text), TextToSpeech.QUEUE_FLUSH, null, "jimi_reply")
         }
+    }
+
+    /** TTS engine symbols ko literally bol deta hai (jaise "*" ko "star"). Yeh function un
+     * markdown/special characters ko hata deta hai jo bolne mein natural nahi lagte, taaki
+     * Jimi sirf asli words bole, symbols nahi. */
+    private fun cleanForSpeech(text: String): String {
+        return text
+            .replace(Regex("[*#_~`]"), "")           // markdown symbols: bold, headers, etc.
+            .replace(Regex("[/\\\\]"), " ")           // slashes ko space se replace (word break na tute)
+            .replace(Regex("[<>{}\\[\\]|]"), "")      // brackets/pipes jo TTS ajeeb bolta hai
+            .replace(Regex("\\s+"), " ")              // extra spaces clean up
+            .trim()
     }
 
     fun shutdown() {

@@ -12,15 +12,14 @@ import java.util.Locale
  *  - Speech-to-text via Android's built-in speech recognizer (mic button press)
  *  - Text-to-speech so Jimi can speak its replies back
  *
- * Voice quality: automatically picks the highest-quality voice available on-device
- * for Hindi/English-India, instead of a fixed default. Uses SSML markup (natural
- * pauses + pitch/rate variation) to sound less flat/robotic - this works fully
- * on-device through Android's built-in TTS engine, no cloud API/billing involved.
+ * Voice character: 4 personas built purely from on-device voice selection + pitch/rate tuning
+ * (no cloud API/billing). "Arjun" (21, younger male), "Veer" (26, deep male), "Ananya" (younger
+ * female, soft), "Isha" (26, warm female). Uses SSML markup for natural pauses.
  *
- * NOTE: SSML gives better pacing and pitch variation, not true emotional acting -
- * that level of realism needs a cloud neural TTS service, which this deliberately avoids.
+ * NOTE: this gives distinguishable characters via pitch/pace, not true voice acting - that
+ * level of realism needs a cloud neural TTS service, which this deliberately avoids.
  */
-class SpeechHelper(context: Context) {
+class SpeechHelper(private val context: Context) {
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -30,30 +29,38 @@ class SpeechHelper(context: Context) {
             if (status == TextToSpeech.SUCCESS) {
                 ttsReady = true
                 tts?.language = Locale("hi", "IN")
-                tts?.setSpeechRate(0.92f)   // thoda natural pace, pehle se kam slow
-                selectBestVoice()
+                applyVoiceCharacter()
             }
         }
     }
 
-    /** Phone mein available saari voices mein se sabse high-quality wali (Hindi/English-India)
-     * automatically choose karta hai, fixed "male name pattern" ke bharose rehne ke bajaye. */
-    private fun selectBestVoice() {
+    /** Current persona ke hisaab se best-matching voice + pitch/rate apply karta hai. Settings
+     * badalne ke baad bhi is function ko dubara call kiya ja sakta hai (naya character turant lagu ho). */
+    fun applyVoiceCharacter() {
         val engine = tts ?: return
-        val voices = engine.voices ?: return
+        val character = SettingsStore.getVoiceCharacter(context)
 
-        val relevantVoices = voices.filter {
-            it.locale.language == "hi" || it.locale.country == "IN"
+        val voices = engine.voices ?: emptySet()
+        val relevantVoices = voices.filter { it.locale.language == "hi" || it.locale.country == "IN" }
+        val isFemaleCharacter = character == "ananya" || character == "isha"
+
+        // Pehle koshish karte hain ki gender-matching naam wali voice mil jaye engine mein,
+        // warna sirf pitch/rate se hi character differentiate karte hain.
+        val genderMatch = relevantVoices.filter {
+            val nameHasFemale = it.name.contains("female", ignoreCase = true)
+            val nameHasMale = it.name.contains("male", ignoreCase = true) && !nameHasFemale
+            if (isFemaleCharacter) nameHasFemale else nameHasMale
         }
+        val bestVoice = (genderMatch.ifEmpty { relevantVoices }).maxByOrNull { it.quality }
 
-        // Quality tiers: VERY_HIGH > HIGH > NORMAL > LOW. Sabse behtar wali chuno.
-        val bestVoice = relevantVoices.maxByOrNull { it.quality }
+        if (bestVoice != null) engine.voice = bestVoice
 
-        if (bestVoice != null) {
-            engine.voice = bestVoice
-        } else {
-            // Koi Hindi/IN voice na mile toh purana fallback - pitch thoda kam karke natural banate hain.
-            engine.setPitch(0.9f)
+        when (character) {
+            "arjun" -> { engine.setPitch(1.15f); engine.setSpeechRate(1.05f) }   // 21, younger, thoda fast/high
+            "veer" -> { engine.setPitch(0.80f); engine.setSpeechRate(0.90f) }   // 26, deep, slow/confident
+            "ananya" -> { engine.setPitch(1.20f); engine.setSpeechRate(0.95f) } // younger female, soft
+            "isha" -> { engine.setPitch(1.05f); engine.setSpeechRate(0.92f) }   // 26, warm female
+            else -> { engine.setPitch(1.0f); engine.setSpeechRate(0.92f) }
         }
     }
 
@@ -78,15 +85,14 @@ class SpeechHelper(context: Context) {
      * markdown/special characters ko hata deta hai jo bolne mein natural nahi lagte. */
     private fun cleanForSpeech(text: String): String {
         return text
-            .replace(Regex("[*#_~`]"), "")           // markdown symbols: bold, headers, etc.
-            .replace(Regex("[/\\\\]"), " ")           // slashes ko space se replace (word break na tute)
-            .replace(Regex("[<>{}\\[\\]|]"), "")      // brackets/pipes jo TTS ajeeb bolta hai (SSML wrap se pehle hi hata do)
-            .replace(Regex("\\s+"), " ")              // extra spaces clean up
+            .replace(Regex("[*#_~`]"), "")
+            .replace(Regex("[/\\\\]"), " ")
+            .replace(Regex("[<>{}\\[\\]|]"), "")
+            .replace(Regex("\\s+"), " ")
             .trim()
     }
 
-    /** Text ko SSML markup mein wrap karta hai - commas/full-stops ke baad chhoti pause daalta hai,
-     * taaki bolne ka flow zyada natural lage, ek hi saans mein poora paragraph bolne jaisa nahi. */
+    /** Text ko SSML markup mein wrap karta hai - commas/full-stops ke baad chhoti pause daalta hai. */
     private fun wrapWithSsml(text: String): String {
         val withPauses = text
             .replace(",", ",<break time=\"180ms\"/>")

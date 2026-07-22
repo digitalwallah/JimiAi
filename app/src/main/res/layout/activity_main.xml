@@ -47,6 +47,14 @@
         android:textColor="@color/jimi_text"
         android:layout_marginBottom="8dp" />
 
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/switchCheckIn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="4. Proactive Check-ins (Jimi din mein ek baar khud check-in karega)"
+        android:textColor="@color/jimi_text"
+        android:layout_marginBottom="8dp" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/chatRecyclerView"
         android:layout_width="match_parent"

@@ -44,4 +44,13 @@ object SettingsStore {
 
     fun getPersona(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("persona", "jarvis") ?: "jarvis"
+
+    /** Proactive check-in: default OFF, user ko khud settings se on karna hoga. */
+    fun setCheckInEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("checkin_enabled", enabled).apply()
+    }
+
+    fun isCheckInEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("checkin_enabled", false)
 }

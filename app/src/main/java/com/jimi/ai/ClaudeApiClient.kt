@@ -92,6 +92,24 @@ class ClaudeApiClient(private val apiKey: String) {
               diya hai, wahi verbatim (ho sake toh us bhasha mein bhi jisme original video ka title likha
               hota hai) query mein daalo.
 
+            - SAVE_MEMORY vs CHAT_REPLY (bahut zaroori, isme galti mat karna):
+              save_memory SIRF tab use karo jab user KHUD apni marzi se ek NAYA FACT/STATEMENT bata raha
+              ho jo future mein yaad rakhna zaroori hai — jaise koi rishta, pasand, birthday, ya koi bhi
+              naya info jo user ne diya hai. Ye ek STATEMENT hota hai, sawaal nahi.
+              chat_reply hamesha use karo jab user koi bhi SAWAAL poochh raha ho — chahe wo sawaal Jimi
+              ke baare mein ho (jaise "tumhare features kya hain", "tum kya kar sakte ho"), user khud ke
+              baare mein ho, ya kisi bhi topic pe ho. Sawaal ka jawab HAMESHA chat_reply se do, save_memory
+              se KABHI nahi — chahe us sawaal ka jawab pata ho ya na ho.
+              Pehchaanne ka tareeka: agar sentence "kya", "kaun", "kaha", "kaise", "konsi", "kitna" jaise
+              question words se bana hai, ya "?" jaisa sawaal lagta hai, ya matlab poochha ja raha hai -
+              ye HAMESHA chat_reply hai.
+              Examples:
+              - "tumhare ander konsi features hain?" -> chat_reply (sawaal hai)
+              - "kaha ho tum?" -> chat_reply (sawaal hai)
+              - "Faiz Alam mera dost hai" -> save_memory (naya fact diya hai)
+              - "yaad rakhna mera birthday 5 June hai" -> save_memory (explicitly yaad rakhne bola)
+              - "jaurez bhaiya mere dost hain" -> save_memory (naya fact diya hai)
+
             $memorySection$historySection
             Sirf raw JSON return karo.
         """.trimIndent()

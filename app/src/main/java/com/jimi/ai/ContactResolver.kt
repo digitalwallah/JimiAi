@@ -17,6 +17,32 @@ object ContactResolver {
         return fuzzyMatch(context, name)
     }
 
+    /** Reverse lookup: incoming call ka number aane par uska contact naam dhoondhta hai
+     * (caller-announce feature ke liye). Number ke format variations (spaces, dashes, +91
+     * prefix) ko tolerate karne ke liye last 10 digits match karta hai. */
+    fun findNameByNumber(context: Context, phoneNumber: String): String? {
+        val resolver = context.contentResolver
+        val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER
+        )
+        val cleanIncoming = phoneNumber.filter { it.isDigit() }.takeLast(10)
+        if (cleanIncoming.length < 7) return null // bahut chhota/invalid number - skip
+
+        resolver.query(uri, projection, null, null, null)?.use { cursor ->
+            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numberIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            while (cursor.moveToNext()) {
+                val contactNumber = cursor.getString(numberIdx)?.filter { it.isDigit() }?.takeLast(10)
+                if (contactNumber != null && contactNumber == cleanIncoming) {
+                    return cursor.getString(nameIdx)
+                }
+            }
+        }
+        return null
+    }
+
     private fun exactMatch(context: Context, name: String): String? {
         val resolver = context.contentResolver
         val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
@@ -60,13 +86,9 @@ object ContactResolver {
             }
         }
 
-        // 0.6 threshold - kaafi lenient hai spelling mistakes ke liye, lekin bilkul alag naam
-        // (jaise "Rahul" bola aur "Priya" match ho jaye) ko avoid karta hai.
         return if (bestSimilarity >= 0.6) bestMatchNumber else null
     }
 
-    /** 0.0 (bilkul alag) se 1.0 (hoobahoo same) tak similarity score - Levenshtein edit-distance
-     * par based, taaki chhoti spelling mistakes (missing/extra/swapped letters) tolerate ho sakein. */
     private fun similarityRatio(a: String, b: String): Double {
         val distance = levenshteinDistance(a, b)
         val maxLen = max(a.length, b.length)

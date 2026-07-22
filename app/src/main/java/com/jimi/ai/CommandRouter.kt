@@ -74,7 +74,7 @@ class CommandRouter(private val context: Context) {
         return reply
     }
 
-    /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel.
+  /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel.
      * Dono mein mood-aware acknowledgment bhi add hai - agar user ke message mein emotional cue ho
      * (tired, bura din, khush, stressed, etc.), toh command execute karne se pehle usko thoda
      * acknowledge kare, phir kaam kare. */

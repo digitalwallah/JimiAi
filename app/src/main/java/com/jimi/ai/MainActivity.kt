@@ -114,6 +114,21 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Always-listening band kar diya", Toast.LENGTH_SHORT).show()
             }
         }
+
+        // Proactive check-in toggle: ON hone par pehla check-in schedule hota hai,
+        // OFF hone par scheduled alarm cancel ho jaata hai.
+        binding.switchCheckIn.setChecked(SettingsStore.isCheckInEnabled(this))
+        binding.switchCheckIn.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                SettingsStore.setCheckInEnabled(this, true)
+                CheckInScheduler.scheduleNext(this)
+                Toast.makeText(this, "Jimi din mein ek baar check-in karega 😊", Toast.LENGTH_SHORT).show()
+            } else {
+                SettingsStore.setCheckInEnabled(this, false)
+                CheckInScheduler.cancel(this)
+                Toast.makeText(this, "Proactive check-ins band kar diye", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun enableAlwaysListening() {

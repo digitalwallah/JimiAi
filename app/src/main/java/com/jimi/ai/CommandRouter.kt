@@ -13,7 +13,13 @@ class CommandRouter(private val context: Context) {
 
     /** Returns a human-readable status string to show in the chat UI. */
     suspend fun handle(command: String, recentHistory: String = ""): String {
-        val decision = claude.routeCommand(command, recentHistory)
+        val db = JimiDatabase.getInstance(context)
+        val savedFacts = db.userFactDao().getAll()
+        val savedMemoriesText = if (savedFacts.isNotEmpty()) {
+            savedFacts.joinToString(" | ") { "${it.key}: ${it.value}" }
+        } else ""
+
+        val decision = claude.routeCommand(command, recentHistory, savedMemoriesText)
         return when (decision.optString("action")) {
 
             "whatsapp_send" -> handleWhatsApp(decision, command)
@@ -30,21 +36,37 @@ class CommandRouter(private val context: Context) {
                 if (opened) "$appName khol diya ✅" else "'$appName' naam ka app nahi mila 😕"
             }
 
-            else -> handleGeneralChat(command)
+            "save_memory" -> handleSaveMemory(decision)
+
+            else -> handleGeneralChat(command, savedMemoriesText)
         }
+    }
+
+    /** Jab Claude decide kare ki koi important fact yaad rakhna hai (naam, preference, date, etc.) */
+    private suspend fun handleSaveMemory(decision: org.json.JSONObject): String {
+        val key = decision.optString("key")
+        val value = decision.optString("value")
+        if (key.isBlank() || value.isBlank()) return "Kya yaad rakhna hai, thoda clear batao?"
+
+        val db = JimiDatabase.getInstance(context)
+        db.userFactDao().insert(UserFact(key = key, value = value))
+        return "Yaad rakh liya: $key - $value ✅"
     }
 
     /** General chat: purani conversations ka summary yaad karke reply deta hai,
      * aur naye reply ka summary future ke liye save kar deta hai. */
-    private suspend fun handleGeneralChat(command: String): String {
+    private suspend fun handleGeneralChat(command: String, savedMemoriesText: String): String {
         val db = JimiDatabase.getInstance(context)
         val pastMemories = db.conversationMemoryDao().getRecent(5)
         val memoryContext = if (pastMemories.isNotEmpty()) {
             "Pichli kuch baaton ka yaad: " + pastMemories.reversed().joinToString(" | ") { it.summary }
         } else ""
+        val factsContext = if (savedMemoriesText.isNotBlank()) {
+            "User ke baare mein yaad rakhi hui important baatein: $savedMemoriesText"
+        } else ""
 
         val reply = claude.ask(
-            personaPrompt() + " " + memoryContext + " " +
+            personaPrompt() + " " + factsContext + " " + memoryContext + " " +
             "Tum Jimi ho, ek Android app jo user ke phone pe already install hai. Tumhare paas yeh " +
             "features PEHLE SE BANE HUE HAIN (yeh sab already kaam karte hain, koi limitation nahi hai): " +
             "1) WhatsApp pe kisi contact ko unke style me message bhej sakte ho. " +
@@ -58,6 +80,9 @@ class CommandRouter(private val context: Context) {
             "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
             "Listening' ON karna hai (agar pehle se ON nahi hai). Kabhi mat bolo ki yeh feature nahi hai " +
             "ya tumhe 'active rehna padta hai' - yeh sab already automatic hai jab switch ON ho. " +
+            "Agar user koi personal fact bataye jo future mein yaad rakhna zaroori ho (naam, birthday, " +
+            "pasandida cheez, kaam-dhandha, etc.), toh us reply ke aakhir mein user ko bata do ki tumne " +
+            "yaad rakh liya hai. " +
             "Chhota, natural Hinglish reply do. Agar user kisi aisi cheez ke liye bole jo upar list me " +
             "nahi hai (jaise koi bilkul naya device action), tabhi saaf bata do ki abhi available nahi hai.",
             command

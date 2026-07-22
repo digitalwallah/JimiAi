@@ -67,5 +67,10 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Proactive check-in ke liye BroadcastReceiver - alarm fire hone par notification dikhata hai -->
+        <receiver
+            android:name=".CheckInReceiver"
+            android:exported="false" />
+
     </application>
 </manifest>

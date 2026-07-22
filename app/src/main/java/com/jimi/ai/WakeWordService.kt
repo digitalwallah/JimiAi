@@ -51,6 +51,10 @@ class WakeWordService : Service() {
         const val NOTIF_ID = 42
         const val WAKE_WORD = "jimi"
 
+        // Persona ke hisaab se greeting variety - har baar wake word sunte hi in me se random pick hoga.
+        private val JARVIS_GREETINGS = listOf("Ji bolo", "Boliye", "Sunn raha hoon", "Ji, kahiye")
+        private val MYRA_GREETINGS = listOf("Haanji bolo na", "Kaho kya scene hai", "Bolo bolo, sun rahi hoon", "Ji bataiye")
+
         fun start(context: Context) {
             val intent = Intent(context, WakeWordService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -180,7 +184,8 @@ class WakeWordService : Service() {
                 wakeScreen()
                 awaitingCommand = true
                 updateNotification("Bolo, Jimi sun raha hai...")
-                speechHelper.speak("Ji bolo")
+                val greetings = if (SettingsStore.getPersona(this) == "myra") MYRA_GREETINGS else JARVIS_GREETINGS
+                speechHelper.speak(greetings.random())
                 // If they said the whole thing in one breath ("Jimi, Rahul ko..."),
                 // treat whatever comes after the wake word as the command right away.
                 val afterWakeWord = text.substringAfter(WAKE_WORD).trim(',', ' ', '.')

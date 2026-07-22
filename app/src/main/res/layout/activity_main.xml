@@ -3,18 +3,35 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/jimi_bg"
-    android:padding="16dp">
+    android:background="@color/jimi_bg">
 
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Jimi"
-        android:textColor="@color/jimi_accent"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="4dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/titleText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Jimi"
+            android:textColor="@color/jimi_accent"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btnMenu"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Settings"
+            android:src="@android:drawable/ic_menu_manage"
+            app:tint="@color/jimi_accent" />
+
+    </LinearLayout>
 
     <TextView
         android:id="@+id/statusText"
@@ -23,36 +40,8 @@
         android:text="Accessibility service: OFF"
         android:textColor="#94A3B8"
         android:textSize="12sp"
-        android:layout_marginBottom="12dp" />
-
-    <Button
-        android:id="@+id/btnEnableAccessibility"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="1. Accessibility Permission On Karo"
-        android:layout_marginBottom="8dp" />
-
-    <Button
-        android:id="@+id/btnSettings"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="2. API Keys Set Karo"
-        android:layout_marginBottom="8dp" />
-
-    <com.google.android.material.switchmaterial.SwitchMaterial
-        android:id="@+id/switchAlwaysListening"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="3. Always Listening (\'Jimi\' bolke jagao, screen off ho tab bhi)"
-        android:textColor="@color/jimi_text"
-        android:layout_marginBottom="8dp" />
-
-    <com.google.android.material.switchmaterial.SwitchMaterial
-        android:id="@+id/switchCheckIn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="4. Proactive Check-ins (Jimi din mein ek baar khud check-in karega)"
-        android:textColor="@color/jimi_text"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:layout_marginBottom="8dp" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -60,13 +49,14 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp" />
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="8dp">
 
         <EditText
             android:id="@+id/commandInput"

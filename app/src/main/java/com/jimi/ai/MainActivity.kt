@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.text.InputType
-import android.view.Gravity
 import android.view.accessibility.AccessibilityManager
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -98,8 +97,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Sab settings ek hi jagah - Accessibility, API keys, persona, Always Listening, Check-ins.
-     * Jaisa Gemini/ChatGPT mein ek "⚙️" menu ke peeche sab options hote hain. */
+    /** Sab settings ek hi jagah - Accessibility, API keys, persona, voice character,
+     * Always Listening, Check-ins. Jaisa Gemini/ChatGPT mein ek "⚙️" menu ke peeche sab options hote hain. */
     private fun showSettingsMenu() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -134,6 +133,22 @@ class MainActivity : AppCompatActivity() {
             setSelection(if (SettingsStore.getPersona(this@MainActivity) == "myra") 1 else 0)
         }
 
+        val voiceLabel = TextView(this).apply {
+            text = "Jimi ki awaaz:"
+            setPadding(0, 32, 0, 8)
+        }
+        val voiceKeys = listOf("arjun", "veer", "ananya", "isha")
+        val voiceOptions = listOf(
+            "Arjun (21, younger male)",
+            "Veer (26, deep male)",
+            "Ananya (younger female, soft)",
+            "Isha (26, warm female)"
+        )
+        val voiceSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, voiceOptions)
+            setSelection(voiceKeys.indexOf(SettingsStore.getVoiceCharacter(this@MainActivity)).coerceAtLeast(0))
+        }
+
         val alwaysListeningLabel = TextView(this).apply {
             text = "Always Listening ('Jimi' bolke jagao, screen off ho tab bhi):"
             setPadding(0, 32, 0, 4)
@@ -155,6 +170,8 @@ class MainActivity : AppCompatActivity() {
         layout.addView(youtubeInput)
         layout.addView(personaLabel)
         layout.addView(personaSpinner)
+        layout.addView(voiceLabel)
+        layout.addView(voiceSpinner)
         layout.addView(alwaysListeningLabel)
         layout.addView(switchAlwaysListening)
         layout.addView(checkInLabel)
@@ -169,6 +186,10 @@ class MainActivity : AppCompatActivity() {
                 SettingsStore.saveKeys(this, claudeInput.text.toString().trim(), youtubeInput.text.toString().trim())
                 val chosenPersona = if (personaSpinner.selectedItemPosition == 1) "myra" else "jarvis"
                 SettingsStore.setPersona(this, chosenPersona)
+
+                val chosenVoice = voiceKeys[voiceSpinner.selectedItemPosition]
+                SettingsStore.setVoiceCharacter(this, chosenVoice)
+                speechHelper.applyVoiceCharacter()
 
                 // Always Listening toggle
                 if (switchAlwaysListening.isChecked != SettingsStore.isAlwaysListeningEnabled(this)) {

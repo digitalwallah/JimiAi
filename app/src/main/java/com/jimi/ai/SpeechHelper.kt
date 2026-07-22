@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import java.util.Locale
 
 /**
@@ -11,9 +12,13 @@ import java.util.Locale
  *  - Speech-to-text via Android's built-in speech recognizer (mic button press)
  *  - Text-to-speech so Jimi can speak its replies back
  *
- * Recognizer language is set to Hindi (hi-IN) with English as a free-form fallback,
- * since Android's on-device/Google recognizer handles Hinglish reasonably well when
- * the primary locale is hi-IN.
+ * Voice quality: automatically picks the highest-quality voice available on-device
+ * for Hindi/English-India, instead of a fixed default. Uses SSML markup (natural
+ * pauses + pitch/rate variation) to sound less flat/robotic - this works fully
+ * on-device through Android's built-in TTS engine, no cloud API/billing involved.
+ *
+ * NOTE: SSML gives better pacing and pitch variation, not true emotional acting -
+ * that level of realism needs a cloud neural TTS service, which this deliberately avoids.
  */
 class SpeechHelper(context: Context) {
 
@@ -25,28 +30,30 @@ class SpeechHelper(context: Context) {
             if (status == TextToSpeech.SUCCESS) {
                 ttsReady = true
                 tts?.language = Locale("hi", "IN")
-                tts?.setSpeechRate(0.85f)   // thoda slow, samajhne me aasaan
-                selectMaleVoice()
+                tts?.setSpeechRate(0.92f)   // thoda natural pace, pehle se kam slow
+                selectBestVoice()
             }
         }
     }
 
-    /** Android voices don't have a strict "gender" field, so we match by name pattern
-     * (most TTS engines name their voices like "hi-in-x-hib-network#male_1"). Falls back
-     * to the default voice if no clearly-male voice is found for Hindi/English-India. */
-    private fun selectMaleVoice() {
+    /** Phone mein available saari voices mein se sabse high-quality wali (Hindi/English-India)
+     * automatically choose karta hai, fixed "male name pattern" ke bharose rehne ke bajaye. */
+    private fun selectBestVoice() {
         val engine = tts ?: return
         val voices = engine.voices ?: return
-        val maleVoice = voices.firstOrNull {
-            (it.locale.language == "hi" || it.locale.country == "IN") &&
-                it.name.contains("male", ignoreCase = true) &&
-                !it.name.contains("female", ignoreCase = true)
+
+        val relevantVoices = voices.filter {
+            it.locale.language == "hi" || it.locale.country == "IN"
         }
-        if (maleVoice != null) {
-            engine.voice = maleVoice
+
+        // Quality tiers: VERY_HIGH > HIGH > NORMAL > LOW. Sabse behtar wali chuno.
+        val bestVoice = relevantVoices.maxByOrNull { it.quality }
+
+        if (bestVoice != null) {
+            engine.voice = bestVoice
         } else {
-            // Kuch devices pe pitch thoda kam karne se awaaz zyada "ladke jaisi" lagti hai.
-            engine.setPitch(0.85f)
+            // Koi Hindi/IN voice na mile toh purana fallback - pitch thoda kam karke natural banate hain.
+            engine.setPitch(0.9f)
         }
     }
 
@@ -61,20 +68,32 @@ class SpeechHelper(context: Context) {
 
     fun speak(text: String) {
         if (ttsReady) {
-            tts?.speak(cleanForSpeech(text), TextToSpeech.QUEUE_FLUSH, null, "jimi_reply")
+            val cleaned = cleanForSpeech(text)
+            val ssml = wrapWithSsml(cleaned)
+            tts?.speak(ssml, TextToSpeech.QUEUE_FLUSH, null, "jimi_reply")
         }
     }
 
     /** TTS engine symbols ko literally bol deta hai (jaise "*" ko "star"). Yeh function un
-     * markdown/special characters ko hata deta hai jo bolne mein natural nahi lagte, taaki
-     * Jimi sirf asli words bole, symbols nahi. */
+     * markdown/special characters ko hata deta hai jo bolne mein natural nahi lagte. */
     private fun cleanForSpeech(text: String): String {
         return text
             .replace(Regex("[*#_~`]"), "")           // markdown symbols: bold, headers, etc.
             .replace(Regex("[/\\\\]"), " ")           // slashes ko space se replace (word break na tute)
-            .replace(Regex("[<>{}\\[\\]|]"), "")      // brackets/pipes jo TTS ajeeb bolta hai
+            .replace(Regex("[<>{}\\[\\]|]"), "")      // brackets/pipes jo TTS ajeeb bolta hai (SSML wrap se pehle hi hata do)
             .replace(Regex("\\s+"), " ")              // extra spaces clean up
             .trim()
+    }
+
+    /** Text ko SSML markup mein wrap karta hai - commas/full-stops ke baad chhoti pause daalta hai,
+     * taaki bolne ka flow zyada natural lage, ek hi saans mein poora paragraph bolne jaisa nahi. */
+    private fun wrapWithSsml(text: String): String {
+        val withPauses = text
+            .replace(",", ",<break time=\"180ms\"/>")
+            .replace(".", ".<break time=\"280ms\"/>")
+            .replace("!", "!<break time=\"250ms\"/>")
+            .replace("?", "?<break time=\"280ms\"/>")
+        return "<speak>$withPauses</speak>"
     }
 
     fun shutdown() {

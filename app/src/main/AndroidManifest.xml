@@ -30,6 +30,11 @@
     <!-- onTaskRemoved restart alarm ke liye (app swipe hone ke baad service wapas jagane ke liye) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
+    <!-- Incoming call detect karke caller ka naam announce karne ke liye -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -71,6 +76,15 @@
         <receiver
             android:name=".CheckInReceiver"
             android:exported="false" />
+
+        <!-- Incoming/outgoing call state detect karke caller ka naam announce karta hai -->
+        <receiver
+            android:name=".CallAnnouncer"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

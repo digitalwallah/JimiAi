@@ -30,26 +30,48 @@ class CommandRouter(private val context: Context) {
                 if (opened) "$appName khol diya ✅" else "'$appName' naam ka app nahi mila 😕"
             }
 
-            else -> claude.ask(
-                personaPrompt() + " " +
-                "Tum Jimi ho, ek Android app jo user ke phone pe already install hai. Tumhare paas yeh " +
-                "features PEHLE SE BANE HUE HAIN (yeh sab already kaam karte hain, koi limitation nahi hai): " +
-                "1) WhatsApp pe kisi contact ko unke style me message bhej sakte ho. " +
-                "2) YouTube pe kisi channel/topic ka video dhoondh kar play kar sakte ho. " +
-                "3) Phone ki kisi bhi installed app ko naam bol kar khol sakte ho. " +
-                "4) Contact ko call laga sakte ho. " +
-                "5) Screen pe dikh rahe kisi bhi button ko tap kar sakte ho. " +
-                "6) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
-                "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
-                "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
-                "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
-                "Listening' ON karna hai (agar pehle se ON nahi hai). Kabhi mat bolo ki yeh feature nahi hai " +
-                "ya tumhe 'active rehna padta hai' - yeh sab already automatic hai jab switch ON ho. " +
-                "Chhota, natural Hinglish reply do. Agar user kisi aisi cheez ke liye bole jo upar list me " +
-                "nahi hai (jaise koi bilkul naya device action), tabhi saaf bata do ki abhi available nahi hai.",
-                command
-            )
+            else -> handleGeneralChat(command)
         }
+    }
+
+    /** General chat: purani conversations ka summary yaad karke reply deta hai,
+     * aur naye reply ka summary future ke liye save kar deta hai. */
+    private suspend fun handleGeneralChat(command: String): String {
+        val db = JimiDatabase.getInstance(context)
+        val pastMemories = db.conversationMemoryDao().getRecent(5)
+        val memoryContext = if (pastMemories.isNotEmpty()) {
+            "Pichli kuch baaton ka yaad: " + pastMemories.reversed().joinToString(" | ") { it.summary }
+        } else ""
+
+        val reply = claude.ask(
+            personaPrompt() + " " + memoryContext + " " +
+            "Tum Jimi ho, ek Android app jo user ke phone pe already install hai. Tumhare paas yeh " +
+            "features PEHLE SE BANE HUE HAIN (yeh sab already kaam karte hain, koi limitation nahi hai): " +
+            "1) WhatsApp pe kisi contact ko unke style me message bhej sakte ho. " +
+            "2) YouTube pe kisi channel/topic ka video dhoondh kar play kar sakte ho. " +
+            "3) Phone ki kisi bhi installed app ko naam bol kar khol sakte ho. " +
+            "4) Contact ko call laga sakte ho. " +
+            "5) Screen pe dikh rahe kisi bhi button ko tap kar sakte ho. " +
+            "6) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
+            "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
+            "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
+            "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
+            "Listening' ON karna hai (agar pehle se ON nahi hai). Kabhi mat bolo ki yeh feature nahi hai " +
+            "ya tumhe 'active rehna padta hai' - yeh sab already automatic hai jab switch ON ho. " +
+            "Chhota, natural Hinglish reply do. Agar user kisi aisi cheez ke liye bole jo upar list me " +
+            "nahi hai (jaise koi bilkul naya device action), tabhi saaf bata do ki abhi available nahi hai.",
+            command
+        )
+
+        // Is exchange ka chhota summary save karo, future context ke liye.
+        try {
+            db.conversationMemoryDao().insert(
+                ConversationMemory(summary = "User: $command | Jimi: ${reply.take(100)}")
+            )
+            db.conversationMemoryDao().trimOldEntries()
+        } catch (e: Exception) { /* memory save fail ho jaaye toh bhi reply block nahi hona chahiye */ }
+
+        return reply
     }
 
     /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel. */

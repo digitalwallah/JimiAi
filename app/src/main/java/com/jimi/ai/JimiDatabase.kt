@@ -5,10 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [ContactStyle::class, ConversationMemory::class], version = 2, exportSchema = false)
+@Database(entities = [ContactStyle::class, ConversationMemory::class, UserFact::class], version = 3, exportSchema = false)
 abstract class JimiDatabase : RoomDatabase() {
     abstract fun contactStyleDao(): ContactStyleDao
     abstract fun conversationMemoryDao(): ConversationMemoryDao
+    abstract fun userFactDao(): UserFactDao
 
     companion object {
         @Volatile private var INSTANCE: JimiDatabase? = null
@@ -20,9 +21,9 @@ abstract class JimiDatabase : RoomDatabase() {
                     JimiDatabase::class.java,
                     "jimi_db"
                 )
-                    // Naya entity add hua hai (version 1 -> 2). Fallback destructive migration
-                    // use kar rahe hain kyunki abhi tak koi published users nahi hain jinka
-                    // purana data preserve karna zaroori ho - development phase mein safe hai.
+                    // Naya entity add hua hai (version 2 -> 3). Fallback destructive migration
+                    // use kar rahe hain kyunki abhi development phase hai - purana test data
+                    // preserve karne ki zaroorat nahi hai.
                     .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }

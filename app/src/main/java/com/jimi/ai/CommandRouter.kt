@@ -36,19 +36,30 @@ class CommandRouter(private val context: Context) {
                 if (opened) "$appName khol diya ✅" else "'$appName' naam ka app nahi mila 😕"
             }
 
-            "save_memory" -> handleSaveMemory(decision)
+            "save_memory" -> handleSaveMemory(decision, command, savedMemoriesText)
 
             else -> handleGeneralChat(command, savedMemoriesText)
         }
     }
 
-    /** Jab Claude decide kare ki koi important fact yaad rakhna hai (naam, preference, date, etc.) */
-    private suspend fun handleSaveMemory(decision: org.json.JSONObject): String {
+    /** Jab Claude decide kare ki koi important fact yaad rakhna hai. Agar yahi fact same value
+     * ke saath pehle se saved hai, iska matlab ye asal mein ek QUESTION tha (jaise "kahan rehta hai"),
+     * naya fact nahi - is case mein hum "yaad rakh liya" spam nahi karte, balki jaankari se seedha
+     * natural jawab dete hain (general chat route se). */
+    private suspend fun handleSaveMemory(decision: org.json.JSONObject, originalCommand: String, savedMemoriesText: String): String {
         val key = decision.optString("key")
         val value = decision.optString("value")
         if (key.isBlank() || value.isBlank()) return "Kya yaad rakhna hai, thoda clear batao?"
 
         val db = JimiDatabase.getInstance(context)
+        val existing = db.userFactDao().findByKey(key)
+
+        if (existing != null && existing.value.equals(value, ignoreCase = true)) {
+            // Fact already saved hai same value ke saath - ye ek query tha, naya info nahi.
+            // "Yaad rakh liya" dobara bolne ke bajaye, saved fact use karke natural jawab do.
+            return handleGeneralChat(originalCommand, savedMemoriesText)
+        }
+
         db.userFactDao().insert(UserFact(key = key, value = value))
         return "Yaad rakh liya: $key - $value ✅"
     }
@@ -80,9 +91,9 @@ class CommandRouter(private val context: Context) {
             "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
             "Listening' ON karna hai (agar pehle se ON nahi hai). Kabhi mat bolo ki yeh feature nahi hai " +
             "ya tumhe 'active rehna padta hai' - yeh sab already automatic hai jab switch ON ho. " +
-            "Agar user koi personal fact bataye jo future mein yaad rakhna zaroori ho (naam, birthday, " +
-            "pasandida cheez, kaam-dhandha, etc.), toh us reply ke aakhir mein user ko bata do ki tumne " +
-            "yaad rakh liya hai. " +
+            "Agar user ke baare mein upar koi yaad rakhi hui jaankari di gayi hai aur user usi ke baare " +
+            "mein sawaal poochhe, to seedha us jaankari se natural jawab do - 'yaad rakh liya' mat bolo, " +
+            "kyunki wo pehle se hi yaad hai, sirf uska jawab do. " +
             "Chhota, natural Hinglish reply do. Agar user kisi aisi cheez ke liye bole jo upar list me " +
             "nahi hai (jaise koi bilkul naya device action), tabhi saaf bata do ki abhi available nahi hai.",
             command
@@ -107,10 +118,14 @@ class CommandRouter(private val context: Context) {
         val moodNote = "Agar user ke message mein koi emotional cue ho (jaise 'tired hoon', 'bura din tha', " +
             "'khush hoon', 'stress ho raha hai'), toh seedha kaam pe mat kudo - pehle ek chhoti si " +
             "acknowledgment line do (over-the-top nahi, natural), phir agar koi command bhi ho usse execute karo."
+        val languageNote = "IMPORTANT: User jis language mein message likhe/bole (pure English, pure Hindi, " +
+            "ya Hinglish), tum bilkul usi language/style mein reply do. Agar user pure English mein likhe, " +
+            "tum bhi pure English mein jawab do - Hindi words mat mix karo. Agar Hinglish likhe, tum bhi " +
+            "Hinglish mein raho. Kabhi khud se apni marzi se language switch mat karo."
         return when (SettingsStore.getPersona(context)) {
-            "myra" -> "Tum ek warm, caring, thodi playful dost jaisi personality ho — natural Hinglish use karo, " +
-                "reply thoda affectionate aur friendly rakho, lekin over-the-top mat karo. $moodNote"
-            else -> "Tum ek formal, professional, to-the-point assistant ho — reply concise aur seedha rakho. $moodNote"
+            "myra" -> "Tum ek warm, caring, thodi playful dost jaisi personality ho — natural tone use karo, " +
+                "reply thoda affectionate aur friendly rakho, lekin over-the-top mat karo. $moodNote $languageNote"
+            else -> "Tum ek formal, professional, to-the-point assistant ho — reply concise aur seedha rakho. $moodNote $languageNote"
         }
     }
 

@@ -53,4 +53,14 @@ object SettingsStore {
 
     fun isCheckInEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("checkin_enabled", false)
+
+    /** Voice character: "arjun" (21, younger male), "veer" (26, deep male),
+     * "ananya" (younger female, soft), "isha" (26, warm female). Default "veer". */
+    fun setVoiceCharacter(context: Context, voice: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("voice_character", voice).apply()
+    }
+
+    fun getVoiceCharacter(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("voice_character", "veer") ?: "veer"
 }

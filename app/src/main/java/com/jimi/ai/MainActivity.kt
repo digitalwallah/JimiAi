@@ -8,11 +8,14 @@ import android.os.Bundle
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.text.InputType
+import android.view.Gravity
 import android.view.accessibility.AccessibilityManager
 import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -74,11 +77,7 @@ class MainActivity : AppCompatActivity() {
         binding.chatRecyclerView.layoutManager = LinearLayoutManager(this)
         binding.chatRecyclerView.adapter = adapter
 
-        binding.btnEnableAccessibility.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }
-
-        binding.btnSettings.setOnClickListener { showApiKeyDialog() }
+        binding.btnMenu.setOnClickListener { showSettingsMenu() }
 
         binding.btnSend.setOnClickListener {
             val text = binding.commandInput.text.toString().trim()
@@ -97,38 +96,111 @@ class MainActivity : AppCompatActivity() {
                 micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }
         }
+    }
 
-        binding.switchAlwaysListening.setChecked(SettingsStore.isAlwaysListeningEnabled(this))
-        binding.switchAlwaysListening.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                    == PackageManager.PERMISSION_GRANTED) {
-                    enableAlwaysListening()
-                } else {
-                    binding.switchAlwaysListening.isChecked = false
-                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    /** Sab settings ek hi jagah - Accessibility, API keys, persona, Always Listening, Check-ins.
+     * Jaisa Gemini/ChatGPT mein ek "⚙️" menu ke peeche sab options hote hain. */
+    private fun showSettingsMenu() {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 0)
+        }
+
+        val btnAccessibility = Button(this).apply {
+            text = if (isAccessibilityServiceEnabled()) "Accessibility: ON ✅" else "Accessibility Permission On Karo"
+        }
+        btnAccessibility.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+
+        val claudeInput = EditText(this).apply {
+            hint = "Gemini API key (aistudio.google.com - FREE)"
+            inputType = InputType.TYPE_CLASS_TEXT
+            setText(SettingsStore.getClaudeKey(this@MainActivity))
+        }
+        val youtubeInput = EditText(this).apply {
+            hint = "YouTube Data API key (Google Cloud Console)"
+            inputType = InputType.TYPE_CLASS_TEXT
+            setText(SettingsStore.getYoutubeKey(this@MainActivity))
+        }
+
+        val personaLabel = TextView(this).apply {
+            text = "Jimi ka style:"
+            setPadding(0, 32, 0, 8)
+        }
+        val personaOptions = listOf("Jarvis (formal)", "MYRA (warm/casual)")
+        val personaSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, personaOptions)
+            setSelection(if (SettingsStore.getPersona(this@MainActivity) == "myra") 1 else 0)
+        }
+
+        val alwaysListeningLabel = TextView(this).apply {
+            text = "Always Listening ('Jimi' bolke jagao, screen off ho tab bhi):"
+            setPadding(0, 32, 0, 4)
+        }
+        val switchAlwaysListening = Switch(this).apply {
+            isChecked = SettingsStore.isAlwaysListeningEnabled(this@MainActivity)
+        }
+
+        val checkInLabel = TextView(this).apply {
+            text = "Proactive Check-ins (Jimi din mein ek baar khud check-in karega):"
+            setPadding(0, 24, 0, 4)
+        }
+        val switchCheckIn = Switch(this).apply {
+            isChecked = SettingsStore.isCheckInEnabled(this@MainActivity)
+        }
+
+        layout.addView(btnAccessibility)
+        layout.addView(claudeInput)
+        layout.addView(youtubeInput)
+        layout.addView(personaLabel)
+        layout.addView(personaSpinner)
+        layout.addView(alwaysListeningLabel)
+        layout.addView(switchAlwaysListening)
+        layout.addView(checkInLabel)
+        layout.addView(switchCheckIn)
+
+        val scrollView = android.widget.ScrollView(this).apply { addView(layout) }
+
+        AlertDialog.Builder(this)
+            .setTitle("Jimi Settings")
+            .setView(scrollView)
+            .setPositiveButton("Save") { _, _ ->
+                SettingsStore.saveKeys(this, claudeInput.text.toString().trim(), youtubeInput.text.toString().trim())
+                val chosenPersona = if (personaSpinner.selectedItemPosition == 1) "myra" else "jarvis"
+                SettingsStore.setPersona(this, chosenPersona)
+
+                // Always Listening toggle
+                if (switchAlwaysListening.isChecked != SettingsStore.isAlwaysListeningEnabled(this)) {
+                    if (switchAlwaysListening.isChecked) {
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED) {
+                            enableAlwaysListening()
+                        } else {
+                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    } else {
+                        SettingsStore.setAlwaysListening(this, false)
+                        WakeWordService.stop(this)
+                        Toast.makeText(this, "Always-listening band kar diya", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            } else {
-                SettingsStore.setAlwaysListening(this, false)
-                WakeWordService.stop(this)
-                Toast.makeText(this, "Always-listening band kar diya", Toast.LENGTH_SHORT).show()
-            }
-        }
 
-        // Proactive check-in toggle: ON hone par pehla check-in schedule hota hai,
-        // OFF hone par scheduled alarm cancel ho jaata hai.
-        binding.switchCheckIn.setChecked(SettingsStore.isCheckInEnabled(this))
-        binding.switchCheckIn.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                SettingsStore.setCheckInEnabled(this, true)
-                CheckInScheduler.scheduleNext(this)
-                Toast.makeText(this, "Jimi din mein ek baar check-in karega 😊", Toast.LENGTH_SHORT).show()
-            } else {
-                SettingsStore.setCheckInEnabled(this, false)
-                CheckInScheduler.cancel(this)
-                Toast.makeText(this, "Proactive check-ins band kar diye", Toast.LENGTH_SHORT).show()
+                // Check-in toggle
+                if (switchCheckIn.isChecked != SettingsStore.isCheckInEnabled(this)) {
+                    if (switchCheckIn.isChecked) {
+                        SettingsStore.setCheckInEnabled(this, true)
+                        CheckInScheduler.scheduleNext(this)
+                        Toast.makeText(this, "Jimi din mein ek baar check-in karega 😊", Toast.LENGTH_SHORT).show()
+                    } else {
+                        SettingsStore.setCheckInEnabled(this, false)
+                        CheckInScheduler.cancel(this)
+                        Toast.makeText(this, "Proactive check-ins band kar diye", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
-        }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun enableAlwaysListening() {
@@ -166,7 +238,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         binding.statusText.text = if (isAccessibilityServiceEnabled())
-            "Accessibility service: ON ✅" else "Accessibility service: OFF ❌ (button 1 dabao)"
+            "Accessibility service: ON ✅" else "Accessibility service: OFF ❌ (⚙️ menu se on karo)"
 
         if (SettingsStore.isAlwaysListeningEnabled(this)) {
             WakeWordService.start(this) // idempotent - agar already chal raha hai toh no-op jaisa hi hai
@@ -186,7 +258,7 @@ class MainActivity : AppCompatActivity() {
         binding.chatRecyclerView.scrollToPosition(messages.size - 1)
 
         if (SettingsStore.getClaudeKey(this).isBlank()) {
-            adapter.addMessage(ChatMessage("Jimi", "Pehle API keys set karo (button 2) — mujhe Gemini API key chahiye kaam karne ke liye."))
+            adapter.addMessage(ChatMessage("Jimi", "Pehle API keys set karo (⚙️ menu se) — mujhe Gemini API key chahiye kaam karne ke liye."))
             return
         }
 
@@ -203,48 +275,5 @@ class MainActivity : AppCompatActivity() {
             binding.chatRecyclerView.scrollToPosition(messages.size - 1)
             speechHelper.speak(reply)
         }
-    }
-
-    private fun showApiKeyDialog() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 0)
-        }
-        val claudeInput = EditText(this).apply {
-            hint = "Gemini API key (aistudio.google.com - FREE)"
-            inputType = InputType.TYPE_CLASS_TEXT
-            setText(SettingsStore.getClaudeKey(this@MainActivity))
-        }
-        val youtubeInput = EditText(this).apply {
-            hint = "YouTube Data API key (Google Cloud Console)"
-            inputType = InputType.TYPE_CLASS_TEXT
-            setText(SettingsStore.getYoutubeKey(this@MainActivity))
-        }
-
-        val personaLabel = TextView(this).apply {
-            text = "Jimi ka style:"
-            setPadding(0, 32, 0, 8)
-        }
-        val personaOptions = listOf("Jarvis (formal)", "MYRA (warm/casual)")
-        val personaSpinner = Spinner(this).apply {
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, personaOptions)
-            setSelection(if (SettingsStore.getPersona(this@MainActivity) == "myra") 1 else 0)
-        }
-
-        layout.addView(claudeInput)
-        layout.addView(youtubeInput)
-        layout.addView(personaLabel)
-        layout.addView(personaSpinner)
-
-        AlertDialog.Builder(this)
-            .setTitle("Jimi Settings")
-            .setView(layout)
-            .setPositiveButton("Save") { _, _ ->
-                SettingsStore.saveKeys(this, claudeInput.text.toString().trim(), youtubeInput.text.toString().trim())
-                val chosenPersona = if (personaSpinner.selectedItemPosition == 1) "myra" else "jarvis"
-                SettingsStore.setPersona(this, chosenPersona)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 }

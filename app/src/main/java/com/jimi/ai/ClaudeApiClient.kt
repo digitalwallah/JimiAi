@@ -80,6 +80,7 @@ class ClaudeApiClient(private val apiKey: String) {
             5. tap_screen -> {"action":"tap_screen","target_text":"<screen button text>"}
             6. chat_reply -> {"action":"chat_reply"}
             7. save_memory -> {"action":"save_memory","key":"<kis baare me yaad rakhna hai>","value":"<kya info yaad rakhni hai>"}
+            8. toggle_flashlight -> {"action":"toggle_flashlight","state":"<'on' ya 'off', jo user bole>"}
 
             Important rules:
             - Contact naam aur app naam (whatsapp_send, make_call, open_app ke andar) HAMESHA Roman/English
@@ -109,6 +110,7 @@ class ClaudeApiClient(private val apiKey: String) {
               - "Faiz Alam mera dost hai" -> save_memory (naya fact diya hai)
               - "yaad rakhna mera birthday 5 June hai" -> save_memory (explicitly yaad rakhne bola)
               - "jaurez bhaiya mere dost hain" -> save_memory (naya fact diya hai)
+              - "flashlight on karo" -> toggle_flashlight (device action hai, sawaal nahi)
 
             $memorySection$historySection
             Sirf raw JSON return karo.

@@ -2,6 +2,7 @@ package com.jimi.ai
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -229,6 +230,7 @@ class MainActivity : AppCompatActivity() {
         WakeWordService.start(this)
         Toast.makeText(this, "Ab 'Jimi' bolke kabhi bhi jagao — screen off ho tab bhi 👂", Toast.LENGTH_LONG).show()
         requestBatteryOptimizationExemption()
+        requestAutostartPermission()
     }
 
     /** Without this, Android may kill the background listener after a while to save battery. */
@@ -240,6 +242,56 @@ class MainActivity : AppCompatActivity() {
                     data = android.net.Uri.parse("package:$packageName")
                 })
             } catch (e: Exception) { /* some OEMs block this intent; ignore */ }
+        }
+    }
+
+    /** FunTouch OS (vivo/iQOO) aur kai dusre OEMs standard Android battery-optimization
+     * ke upar bhi apna khud ka background-kill layer rakhte hain jise koi standard
+     * Android API control nahi kar sakta — isko sirf OEM ki khud ki "Autostart" /
+     * "Background power consumption" settings screen se manually allow karwana padta hai.
+     * Yahan un screens ko seedha kholne ki koshish karte hain; agar koi bhi match na kare
+     * to app info screen khol dete hain taaki user khud dhoondh sake. */
+    private fun requestAutostartPermission() {
+        val knownAutostartIntents = listOf(
+            Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
+            Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.PurviewTabActivity")),
+            Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity")),
+            Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.MainActivity")),
+            Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"))
+        )
+
+        var opened = false
+        for (intent in knownAutostartIntents) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                opened = true
+                break
+            } catch (e: Exception) {
+                // Ye OEM ka screen is device pe nahi hai, agla try karo
+            }
+        }
+
+        if (opened) {
+            Toast.makeText(
+                this,
+                "Yahan 'Jimi' ko Autostart/background allow kar do — warna screen off hote hi iQOO ise band kar dega",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            try {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.parse("package:$packageName")
+                })
+                Toast.makeText(
+                    this,
+                    "Battery/Autostart settings mein jaake Jimi ke liye background restriction hata do",
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) { /* give up quietly */ }
         }
     }
 

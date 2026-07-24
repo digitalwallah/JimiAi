@@ -46,6 +46,15 @@ class JimiAccessibilityService : AccessibilityService() {
         return searchNode(root, text)
     }
 
+    /** Searches the current screen for a node by its exact resource-id (e.g. "com.whatsapp:id/send").
+     * Zyada reliable hai text-search se, kyunki icon-only buttons ka content-description kabhi
+     * khaali hota hai lekin resource-id hamesha same rehta hai. */
+    fun findNodeById(resourceId: String): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        val nodes = root.findAccessibilityNodeInfosByViewId(resourceId)
+        return nodes?.firstOrNull()
+    }
+
     private fun searchNode(node: AccessibilityNodeInfo, text: String): AccessibilityNodeInfo? {
         val nodeText = node.text?.toString() ?: ""
         val nodeDesc = node.contentDescription?.toString() ?: ""

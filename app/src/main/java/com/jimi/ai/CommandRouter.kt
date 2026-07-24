@@ -1,6 +1,7 @@
 package com.jimi.ai
 
 import android.content.Context
+import kotlinx.coroutines.delay
 
 /**
  * The glue: takes a raw Hinglish/Hindi/English command from the user,
@@ -29,6 +30,14 @@ class CommandRouter(private val context: Context) {
             "make_call" -> handleCall(decision)
 
             "tap_screen" -> handleTapScreen(decision)
+
+            "toggle_flashlight" -> {
+                val state = decision.optString("state").lowercase()
+                val turnOn = state != "off"
+                val success = SystemControlHelper.setFlashlight(context, turnOn)
+                if (success) "Flashlight ${if (turnOn) "on" else "off"} kar diya ✅"
+                else "Flashlight control nahi ho paaya — camera permission check karo."
+            }
 
             "open_app" -> {
                 val appName = decision.optString("app_name")
@@ -85,7 +94,8 @@ class CommandRouter(private val context: Context) {
             "3) Phone ki kisi bhi installed app ko naam bol kar khol sakte ho. " +
             "4) Contact ko call laga sakte ho. " +
             "5) Screen pe dikh rahe kisi bhi button ko tap kar sakte ho. " +
-            "6) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
+            "6) Flashlight on/off kar sakte ho. " +
+            "7) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
             "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
             "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
             "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
@@ -168,18 +178,26 @@ class CommandRouter(private val context: Context) {
         return "Playing: ${result.title} ▶️"
     }
 
-    private fun handleTapScreen(decision: org.json.JSONObject): String {
+    /** Screen pe koi bhi button/text dhoondh kar tap karta hai. Ab retry-logic ke saath —
+     * pehli koshish mein hi na milne pe turant fail nahi hota, thoda wait karke kai baar
+     * try karta hai (kai screens load hone mein thoda time leti hain, especially slow devices pe). */
+    private suspend fun handleTapScreen(decision: org.json.JSONObject): String {
         val targetText = decision.optString("target_text")
         if (targetText.isBlank()) return "Kaunsa button dabana hai, thoda clear batao?"
 
         val service = JimiAccessibilityService.instance
             ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
 
-        val node = service.findNodeByText(targetText)
-            ?: return "'$targetText' mujhe abhi screen pe nahi mil raha."
-
-        val success = service.clickNode(node)
-        return if (success) "'$targetText' dabaya ✅" else "'$targetText' mila lekin tap nahi ho paaya."
+        val maxAttempts = 5
+        repeat(maxAttempts) { attempt ->
+            val node = service.findNodeByText(targetText)
+            if (node != null) {
+                val success = service.clickNode(node)
+                return if (success) "'$targetText' dabaya ✅" else "'$targetText' mila lekin tap nahi ho paaya."
+            }
+            if (attempt < maxAttempts - 1) delay(500)
+        }
+        return "'$targetText' mujhe abhi screen pe nahi mil raha."
     }
 
     private fun handleCall(decision: org.json.JSONObject): String {

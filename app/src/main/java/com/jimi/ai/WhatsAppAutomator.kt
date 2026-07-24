@@ -36,21 +36,36 @@ object WhatsAppAutomator {
     /**
      * Step 2: after WhatsApp opens (call this a second or two later, from a coroutine),
      * find and tap the Send button via the Accessibility Service.
+     * Ab ek hi try ke bajaye kai baar retry karta hai (slow/OEM-restricted devices ke liye),
+     * aur text/description ke saath-saath WhatsApp ka fixed resource-id bhi try karta hai
+     * (jo icon-only buttons pe zyada reliable hai).
      * Returns true if a send button was found and tapped.
      */
     suspend fun tapSendButton(): Boolean {
         val service = JimiAccessibilityService.instance ?: return false
         // Give WhatsApp's UI a moment to finish rendering after the intent launch.
-        delay(1800)
+        delay(1500)
 
-        // WhatsApp's send button typically has content-description "Send"
-        // (localized on Hindi phones it may say "भेजें" — we try both).
         val candidates = listOf("Send", "भेजें")
-        for (label in candidates) {
-            val node = service.findNodeByText(label)
-            if (node != null) {
-                return service.clickNode(node)
+        val maxAttempts = 6
+
+        repeat(maxAttempts) { attempt ->
+            // Pehle resource-id se try karo — icon-only Send button ke liye zyada reliable.
+            val idNode = service.findNodeById("com.whatsapp:id/send")
+            if (idNode != null) {
+                return service.clickNode(idNode)
             }
+
+            // Fallback: text/content-description se try karo.
+            for (label in candidates) {
+                val node = service.findNodeByText(label)
+                if (node != null) {
+                    return service.clickNode(node)
+                }
+            }
+
+            // Is attempt mein nahi mila — thoda aur wait karke fir try karo.
+            if (attempt < maxAttempts - 1) delay(600)
         }
         return false
     }

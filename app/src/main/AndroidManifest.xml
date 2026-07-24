@@ -35,6 +35,10 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
 
+    <!-- WhatsApp automation ke button-tap fallback overlay/diagnostics ke liye,
+         aur ye declare karne se hi "Display over other apps" Settings mein dikhta hai -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -85,6 +89,12 @@
                 <action android:name="android.intent.action.PHONE_STATE" />
             </intent-filter>
         </receiver>
+
+        <!-- Har ~15 min mein check karta hai ki WakeWordService zinda hai ya OEM ne maar diya;
+             agar mar gayi ho to wapas start karta hai (FunTouch/OriginOS jaise OS ke liye) -->
+        <receiver
+            android:name=".WakeWordWatchdogReceiver"
+            android:exported="false" />
 
     </application>
 </manifest>

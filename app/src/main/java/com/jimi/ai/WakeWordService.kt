@@ -35,6 +35,14 @@ import kotlinx.coroutines.launch
  * NOTE ON LOCK SCREEN: if your phone has a PIN/pattern/fingerprint lock, Jimi CANNOT and
  * WILL NOT bypass it (that would be a serious security hole). It wakes the screen so you can
  * unlock normally, then continues.
+ *
+ * NOTE ON OEM BACKGROUND KILL: vivo/iQOO (FunTouch/OriginOS), MIUI, ColorOS etc. run their
+ * own background-process killer on top of standard Android, which can silently kill this
+ * service even with battery-optimization exemption granted. `scheduleWatchdog()` below fights
+ * this by periodically checking (independent of onTaskRemoved) whether the service is still
+ * alive and restarting it if not. For this to actually stick, the user also needs to allow
+ * "Autostart"/"Background power consumption" for Jimi in the OEM's own settings
+ * (MainActivity.requestAutostartPermission() tries to open that screen directly).
  */
 class WakeWordService : Service() {
 
@@ -50,6 +58,7 @@ class WakeWordService : Service() {
         const val CHANNEL_ID = "jimi_wakeword_channel"
         const val NOTIF_ID = 42
         const val WAKE_WORD = "jimi"
+        private const val WATCHDOG_REQUEST_CODE = 99
 
         // Persona ke hisaab se greeting variety - har baar wake word sunte hi in me se random pick hoga.
         private val JARVIS_GREETINGS = listOf("Ji bolo", "Boliye", "Sunn raha hoon", "Ji, kahiye")
@@ -65,7 +74,35 @@ class WakeWordService : Service() {
         }
 
         fun stop(context: Context) {
+            cancelWatchdog(context)
             context.stopService(Intent(context, WakeWordService::class.java))
+        }
+
+        /** Har 15 min mein service ki zinda-hone-ki check karega. Ye Doze-friendly
+         * inexact repeating alarm hai, isliye SCHEDULE_EXACT_ALARM ki zaroorat nahi padti. */
+        fun scheduleWatchdog(context: Context) {
+            val intent = Intent(context, WakeWordWatchdogReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context, WATCHDOG_REQUEST_CODE, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.setInexactRepeating(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                android.os.SystemClock.elapsedRealtime() + AlarmManager.INTERVAL_FIFTEEN_MINUTES,
+                AlarmManager.INTERVAL_FIFTEEN_MINUTES,
+                pendingIntent
+            )
+        }
+
+        fun cancelWatchdog(context: Context) {
+            val intent = Intent(context, WakeWordWatchdogReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context, WATCHDOG_REQUEST_CODE, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.cancel(pendingIntent)
         }
     }
 
@@ -76,6 +113,7 @@ class WakeWordService : Service() {
         startForeground(NOTIF_ID, buildNotification("Jimi sun raha hai... 👂"))
         setupRecognizer()
         startListeningCycle()
+        scheduleWatchdog(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY

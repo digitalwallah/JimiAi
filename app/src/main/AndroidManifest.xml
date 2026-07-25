@@ -1,49 +1,24 @@
-cat > app/src/main/AndroidManifest.xml << 'JIMIEOF'
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Internet for Claude API + YouTube Data API -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Read contacts, so Jimi knows names/numbers and can store a language-style per contact -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-
-    <!-- Query installed apps (Android 11+ needs this to see other apps) -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
-
-    <!-- Foreground service, so Jimi keeps running while it operates other apps -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Voice input (mic button) aur voice output (Jimi bol ke reply de sake) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- Seedha call lagane ke liye (permission diye bina Jimi sirf dialer kholega) -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
-
-    <!-- Always-listening background wake-word service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
-    <!-- onTaskRemoved restart alarm ke liye (app swipe hone ke baad service wapas jagane ke liye) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-
-    <!-- Incoming call detect karke caller ka naam announce karne ke liye -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
-
-    <!-- WhatsApp automation ke button-tap fallback overlay/diagnostics ke liye,
-         aur ye declare karne se hi "Display over other apps" Settings mein dikhta hai -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- Brightness aur rotation-lock control ke liye - special permission hai,
-         user ko ek baar manually allow karni padegi (SystemControlHelper.requestWriteSettingsPermission()
-         wo screen seedha khol deta hai) -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
     <application
@@ -98,7 +73,3 @@ cat > app/src/main/AndroidManifest.xml << 'JIMIEOF'
 
     </application>
 </manifest>
-JIMIEOF
-git add app/src/main/AndroidManifest.xml
-git commit -m "Fix manifest xmlns:tools scope"
-git push

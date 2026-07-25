@@ -99,7 +99,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Sab settings ek hi jagah - Accessibility, API keys, persona, voice character,
-     * Always Listening, Check-ins. Jaisa Gemini/ChatGPT mein ek "⚙️" menu ke peeche sab options hote hain. */
+     * Always Listening, Auto-send, Check-ins. Jaisa Gemini/ChatGPT mein ek "⚙️" menu ke
+     * peeche sab options hote hain. */
     private fun showSettingsMenu() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -158,6 +159,14 @@ class MainActivity : AppCompatActivity() {
             isChecked = SettingsStore.isAlwaysListeningEnabled(this@MainActivity)
         }
 
+        val autoSendLabel = TextView(this).apply {
+            text = "WhatsApp Auto-send (ON = review ke bina seedha bhej dega; OFF = pehle draft dikhayega):"
+            setPadding(0, 24, 0, 4)
+        }
+        val switchAutoSend = Switch(this).apply {
+            isChecked = SettingsStore.isAutoSendEnabled(this@MainActivity)
+        }
+
         val checkInLabel = TextView(this).apply {
             text = "Proactive Check-ins (Jimi din mein ek baar khud check-in karega):"
             setPadding(0, 24, 0, 4)
@@ -175,6 +184,8 @@ class MainActivity : AppCompatActivity() {
         layout.addView(voiceSpinner)
         layout.addView(alwaysListeningLabel)
         layout.addView(switchAlwaysListening)
+        layout.addView(autoSendLabel)
+        layout.addView(switchAutoSend)
         layout.addView(checkInLabel)
         layout.addView(switchCheckIn)
 
@@ -206,6 +217,17 @@ class MainActivity : AppCompatActivity() {
                         WakeWordService.stop(this)
                         Toast.makeText(this, "Always-listening band kar diya", Toast.LENGTH_SHORT).show()
                     }
+                }
+
+                // Auto-send toggle
+                if (switchAutoSend.isChecked != SettingsStore.isAutoSendEnabled(this)) {
+                    SettingsStore.setAutoSend(this, switchAutoSend.isChecked)
+                    Toast.makeText(
+                        this,
+                        if (switchAutoSend.isChecked) "Auto-send ON — Jimi ab review ke bina seedha message bhej dega"
+                        else "Auto-send OFF — Jimi ab pehle draft dikhayega",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
 
                 // Check-in toggle

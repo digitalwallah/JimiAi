@@ -43,6 +43,15 @@ import kotlinx.coroutines.launch
  * alive and restarting it if not. For this to actually stick, the user also needs to allow
  * "Autostart"/"Background power consumption" for Jimi in the OEM's own settings
  * (MainActivity.requestAutostartPermission() tries to open that screen directly).
+ *
+ * NOTE ON THE MIC INDICATOR: Android shows a system-level privacy dot/icon whenever
+ * SpeechRecognizer.startListening() is active — this is an OS security feature, not
+ * something an app can suppress, and it appears on EVERY always-listening app (Assistant,
+ * WhatsApp, etc.), not just Jimi. What we CAN control is how often we restart the listening
+ * cycle: EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS below makes each cycle listen for
+ * a longer stretch before giving up on silence, so the indicator flickers far less often than
+ * the old rapid-restart approach, while also giving the recognizer more time to catch a full
+ * sentence (which also improves accuracy).
  */
 class WakeWordService : Service() {
 
@@ -176,10 +185,13 @@ class WakeWordService : Service() {
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(object : RecognitionListener {
                 override fun onResults(results: Bundle?) {
-                    val text = results
+                    // Sirf top guess nahi, top 5 tak ke saare alternatives check karte hain —
+                    // ek chhota-sa mishear bhi ab match miss nahi karega agar koi ek
+                    // alternative sahi nikla.
+                    val allGuesses = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()?.lowercase() ?: ""
-                    onHeard(text)
+                        ?.map { it.lowercase() } ?: emptyList()
+                    onHeard(allGuesses)
                     restartSoon(quick = true)
                 }
                 override fun onError(error: Int) {
@@ -211,6 +223,16 @@ class WakeWordService : Service() {
                     // zyada reliably recognize hote hain — hi-IN mode "Jimi" ko aksar galat sun leta tha.
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                    // Top guess ke alawa 4 aur alternatives bhi maangte hain — accuracy ke liye,
+                    // taaki ek chhota mishear bhi wake-word detection miss na kare.
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                    // Ek listening-window ko lamba karte hain (chup rehne pe bhi ~2.5s tak
+                    // wait karega band karne se pehle) — isse (a) poora sentence pakadne ka
+                    // zyada time milta hai (accuracy up) aur (b) cycle utni jaldi restart
+                    // nahi hota, isliye mic-indicator utni baar-baar nahi chamakta.
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 15000)
                 }
             )
         } catch (e: Exception) {
@@ -220,17 +242,21 @@ class WakeWordService : Service() {
     }
 
     /** quick=true (result mila, chahe wake-word na ho) toh 400ms mein turant restart.
-     * quick=false (silence/timeout error) toh 1500ms wait karke restart — isse chup rehne
+     * quick=false (silence/timeout error) toh 2000ms wait karke restart — isse chup rehne
      * par mic indicator baar-baar nahi chamakta. */
     private fun restartSoon(quick: Boolean) {
-        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 1500)
+        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 2000)
     }
 
-    private fun onHeard(text: String) {
-        if (text.isBlank()) return
+    private fun onHeard(guesses: List<String>) {
+        if (guesses.isEmpty() || guesses.all { it.isBlank() }) return
+
+        // Jis bhi alternative mein wake-word mila, usi ko "sahi transcription" maan lete hain.
+        val matchedGuess = guesses.firstOrNull { g -> WAKE_WORDS.any { g.contains(it) } }
+        val text = matchedGuess ?: guesses.first()
 
         if (!awaitingCommand) {
-            if (WAKE_WORDS.any { text.contains(it) }) {
+            if (matchedGuess != null) {
                 wakeScreen()
                 awaitingCommand = true
                 updateNotification("Bolo, Jimi sun raha hai...")

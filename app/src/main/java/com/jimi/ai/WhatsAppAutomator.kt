@@ -38,8 +38,10 @@ object WhatsAppAutomator {
      * find and tap the Send button via the Accessibility Service.
      * Ab ek hi try ke bajaye kai baar retry karta hai (slow/OEM-restricted devices ke liye),
      * aur text/description ke saath-saath WhatsApp ka fixed resource-id bhi try karta hai
-     * (jo icon-only buttons pe zyada reliable hai).
-     * Returns true if a send button was found and tapped.
+     * (jo icon-only buttons pe zyada reliable hai). Agar node mil jaaye lekin tap fail ho
+     * jaaye (race condition), tab bhi retry karta hai — sirf actual successful click pe
+     * hi return true karta hai.
+     * Returns true if a send button was found and successfully tapped.
      */
     suspend fun tapSendButton(): Boolean {
         val service = JimiAccessibilityService.instance ?: return false
@@ -52,19 +54,20 @@ object WhatsAppAutomator {
         repeat(maxAttempts) { attempt ->
             // Pehle resource-id se try karo — icon-only Send button ke liye zyada reliable.
             val idNode = service.findNodeById("com.whatsapp:id/send")
-            if (idNode != null) {
-                return service.clickNode(idNode)
+            if (idNode != null && service.clickNode(idNode)) {
+                return true
             }
 
             // Fallback: text/content-description se try karo.
             for (label in candidates) {
                 val node = service.findNodeByText(label)
-                if (node != null) {
-                    return service.clickNode(node)
+                if (node != null && service.clickNode(node)) {
+                    return true
                 }
             }
 
-            // Is attempt mein nahi mila — thoda aur wait karke fir try karo.
+            // Is attempt mein click nahi hua (node mila hi nahi, ya mila lekin tap fail hua) —
+            // dono cases mein retry karta hai, give-up karne se pehle.
             if (attempt < maxAttempts - 1) delay(600)
         }
         return false

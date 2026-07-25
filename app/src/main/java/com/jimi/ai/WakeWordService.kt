@@ -52,6 +52,12 @@ import kotlinx.coroutines.launch
  * a longer stretch before giving up on silence, so the indicator flickers far less often than
  * the old rapid-restart approach, while also giving the recognizer more time to catch a full
  * sentence (which also improves accuracy).
+ *
+ * FIX (this version): removed EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS. It was forcing every
+ * listening cycle to stay open at least 15 seconds regardless of silence, which fought the
+ * 2.5s silence-timeout below, made each cycle much slower, and kept the mic open long enough
+ * that the OEM's background-killer was more likely to kill the service. Removing it restores
+ * the fast, responsive cycle behavior.
  */
 class WakeWordService : Service() {
 
@@ -230,9 +236,12 @@ class WakeWordService : Service() {
                     // wait karega band karne se pehle) — isse (a) poora sentence pakadne ka
                     // zyada time milta hai (accuracy up) aur (b) cycle utni jaldi restart
                     // nahi hota, isliye mic-indicator utni baar-baar nahi chamakta.
+                    // NOTE: EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS jaanbujh kar yahan NAHI hai —
+                    // wo har cycle ko forcibly 15s tak khula rakhta tha chahe silence ho, jo isi
+                    // silence-timeout se contradict karta tha aur mic ko zaroorat se zyada der
+                    // khula rakhta tha (OEM background-killer trigger karne ka bada reason).
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 15000)
                 }
             )
         } catch (e: Exception) {

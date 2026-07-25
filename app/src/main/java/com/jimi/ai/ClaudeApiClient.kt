@@ -81,6 +81,12 @@ class ClaudeApiClient(private val apiKey: String) {
             6. chat_reply -> {"action":"chat_reply"}
             7. save_memory -> {"action":"save_memory","key":"<kis baare me yaad rakhna hai>","value":"<kya info yaad rakhni hai>"}
             8. toggle_flashlight -> {"action":"toggle_flashlight","state":"<'on' ya 'off', jo user bole>"}
+            9. volume_control -> {"action":"volume_control","direction":"<'up','down','mute','unmute','max', ya 'set' agar exact percent bola ho>","percent":<0-100 ka number, sirf agar direction 'set' hai warna -1>}
+            10. brightness_control -> {"action":"brightness_control","direction":"<'up','down', ya 'set' agar exact percent bola ho>","percent":<0-100 ka number, sirf agar direction 'set' hai warna -1>}
+            11. rotation_lock -> {"action":"rotation_lock","state":"<'on' (lock/fix karna) ya 'off' (auto-rotate)>"}
+            12. media_control -> {"action":"media_control","command":"<'play','pause','play_pause','next','previous','stop'>"}
+            13. set_alarm -> {"action":"set_alarm","hour":<0-23, 24-hour format>,"minute":<0-59>,"label":"<agar koi naam/reason bola ho, warna khaali>"}
+            14. set_timer -> {"action":"set_timer","seconds":<total seconds mein duration>,"label":"<agar koi naam bola ho, warna khaali>"}
 
             Important rules:
             - Contact naam aur app naam (whatsapp_send, make_call, open_app ke andar) HAMESHA Roman/English
@@ -92,6 +98,16 @@ class ClaudeApiClient(private val apiKey: String) {
               Apna guess ya loosely-related topic mat banao. Agar user ne specific title, naam, ya keyword
               diya hai, wahi verbatim (ho sake toh us bhasha mein bhi jisme original video ka title likha
               hota hai) query mein daalo.
+            - set_alarm ke liye time hamesha 24-hour format mein convert karo: "shaam/sham 5 baje" = 17,
+              "raat 9 baje" ya "raat ke 9" = 21, "subah 7 baje" = 7, "dopahar 2 baje" = 14. Agar user sirf
+              "9 baje" bole bina AM/PM/subah-shaam ke, aur context na ho, toh sabse natural guess lo
+              (jaise akela "9 baje" alarm ke liye usually subah hota hai).
+            - set_timer ke liye duration ko hamesha total seconds mein convert karo: "5 minute" = 300,
+              "10 minute" = 600, "1 ghanta"/"1 hour" = 3600, "30 second" = 30.
+            - volume_control/brightness_control mein agar user exact number bole ("volume 50 kar do",
+              "brightness 80% kar do"), toh direction="set" aur percent us number ko do. Agar sirf
+              "badhao"/"kam karo"/"tez karo"/"dheema karo" bole bina number ke, toh direction="up"/"down"
+              aur percent=-1.
 
             - SAVE_MEMORY vs CHAT_REPLY (bahut zaroori, isme galti mat karna):
               save_memory SIRF tab use karo jab user KHUD apni marzi se ek NAYA FACT/STATEMENT bata raha
@@ -111,6 +127,11 @@ class ClaudeApiClient(private val apiKey: String) {
               - "yaad rakhna mera birthday 5 June hai" -> save_memory (explicitly yaad rakhne bola)
               - "jaurez bhaiya mere dost hain" -> save_memory (naya fact diya hai)
               - "flashlight on karo" -> toggle_flashlight (device action hai, sawaal nahi)
+              - "volume badhao" -> volume_control
+              - "subah 6 baje alarm laga do" -> set_alarm
+              - "5 minute ka timer lagao" -> set_timer
+              - "gaana pause karo" -> media_control
+              - "screen ghumne mat do" -> rotation_lock (state="on")
 
             $memorySection$historySection
             Sirf raw JSON return karo.

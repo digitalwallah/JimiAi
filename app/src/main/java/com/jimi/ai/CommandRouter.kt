@@ -47,6 +47,18 @@ class CommandRouter(private val context: Context) {
 
             "save_memory" -> handleSaveMemory(decision, command, savedMemoriesText)
 
+            "volume_control" -> handleVolumeControl(decision)
+
+            "brightness_control" -> handleBrightnessControl(decision)
+
+            "rotation_lock" -> handleRotationLock(decision)
+
+            "media_control" -> handleMediaControl(decision)
+
+            "set_alarm" -> handleSetAlarm(decision)
+
+            "set_timer" -> handleSetTimer(decision)
+
             else -> handleGeneralChat(command, savedMemoriesText)
         }
     }
@@ -95,7 +107,13 @@ class CommandRouter(private val context: Context) {
             "4) Contact ko call laga sakte ho. " +
             "5) Screen pe dikh rahe kisi bhi button ko tap kar sakte ho. " +
             "6) Flashlight on/off kar sakte ho. " +
-            "7) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
+            "7) Volume badha/kam kar sakte ho ya exact percent pe set kar sakte ho. " +
+            "8) Screen brightness badha/kam kar sakte ho ya exact percent pe set kar sakte ho. " +
+            "9) Screen rotation lock on/off kar sakte ho. " +
+            "10) Music/video ko play/pause/next/previous kar sakte ho, chahe koi bhi player chal raha ho. " +
+            "11) Alarm set kar sakte ho bole gaye time pe. " +
+            "12) Timer set kar sakte ho boli gayi duration ke liye. " +
+            "13) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
             "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
             "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
             "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
@@ -227,5 +245,112 @@ class CommandRouter(private val context: Context) {
             context.startActivity(intent)
             "$contactName ka number dialer me khol diya. Auto-call ke liye app ko Call permission do (Settings > Apps > Jimi > Permissions)."
         }
+    }
+
+    private fun handleVolumeControl(decision: org.json.JSONObject): String {
+        val direction = decision.optString("direction").lowercase()
+        val percent = decision.optInt("percent", -1)
+
+        val success = if (direction == "set" && percent in 0..100) {
+            SystemControlHelper.setVolumePercent(context, percent)
+        } else {
+            SystemControlHelper.adjustVolume(context, direction)
+        }
+
+        return if (success) {
+            when (direction) {
+                "set" -> "Volume $percent% kar diya 🔊"
+                "up" -> "Volume badha diya 🔊"
+                "down" -> "Volume kam kar diya 🔉"
+                "mute" -> "Mute kar diya 🔇"
+                "unmute" -> "Unmute kar diya 🔊"
+                "max" -> "Volume full kar diya 🔊"
+                else -> "Volume adjust kar diya"
+            }
+        } else "Volume control nahi ho paaya."
+    }
+
+    private fun handleBrightnessControl(decision: org.json.JSONObject): String {
+        if (!SystemControlHelper.canWriteSettings(context)) {
+            SystemControlHelper.requestWriteSettingsPermission(context)
+            return "Brightness control ke liye ek special permission chahiye — jo screen khuli hai usme Jimi ko allow kar do, phir dobara try karna."
+        }
+
+        val direction = decision.optString("direction").lowercase()
+        val percent = decision.optInt("percent", -1)
+
+        val success = if (direction == "set" && percent in 0..100) {
+            SystemControlHelper.adjustBrightness(context, percent = percent)
+        } else {
+            SystemControlHelper.adjustBrightness(context, direction = direction)
+        }
+
+        return if (success) {
+            when (direction) {
+                "set" -> "Brightness $percent% kar diya ☀️"
+                "up" -> "Brightness badha diya ☀️"
+                "down" -> "Brightness kam kar diya 🌙"
+                else -> "Brightness adjust kar diya"
+            }
+        } else "Brightness control nahi ho paaya."
+    }
+
+    private fun handleRotationLock(decision: org.json.JSONObject): String {
+        if (!SystemControlHelper.canWriteSettings(context)) {
+            SystemControlHelper.requestWriteSettingsPermission(context)
+            return "Rotation control ke liye ek special permission chahiye — jo screen khuli hai usme Jimi ko allow kar do, phir dobara try karna."
+        }
+
+        val state = decision.optString("state").lowercase()
+        val locked = state == "on"
+        val success = SystemControlHelper.setRotationLock(context, locked)
+
+        return if (success) {
+            if (locked) "Screen rotation lock kar diya 🔒" else "Auto-rotate on kar diya 🔄"
+        } else "Rotation control nahi ho paaya."
+    }
+
+    private fun handleMediaControl(decision: org.json.JSONObject): String {
+        val command = decision.optString("command").lowercase()
+        val success = SystemControlHelper.controlMedia(context, command)
+
+        return if (success) {
+            when (command) {
+                "play" -> "Play kar diya ▶️"
+                "pause" -> "Pause kar diya ⏸️"
+                "play_pause", "toggle" -> "Play/Pause kar diya"
+                "next" -> "Next track ⏭️"
+                "previous" -> "Previous track ⏮️"
+                "stop" -> "Stop kar diya ⏹️"
+                else -> "Media control kar diya"
+            }
+        } else "Media control nahi ho paaya — koi player active nahi hai shayad."
+    }
+
+    private fun handleSetAlarm(decision: org.json.JSONObject): String {
+        val hour = decision.optInt("hour", -1)
+        val minute = decision.optInt("minute", 0)
+        if (hour !in 0..23) return "Kitne baje alarm lagana hai, thoda clear batao?"
+
+        val label = decision.optString("label").ifBlank { "Jimi Alarm" }
+        val success = SystemControlHelper.setAlarm(context, hour, minute, label)
+
+        val timeStr = String.format("%02d:%02d", hour, minute)
+        return if (success) "$timeStr ka alarm laga diya ⏰" else "Alarm set nahi ho paaya."
+    }
+
+    private fun handleSetTimer(decision: org.json.JSONObject): String {
+        val seconds = decision.optInt("seconds", -1)
+        if (seconds <= 0) return "Kitni der ka timer lagana hai, thoda clear batao?"
+
+        val label = decision.optString("label").ifBlank { "Jimi Timer" }
+        val success = SystemControlHelper.setTimer(context, seconds, label)
+
+        val readable = when {
+            seconds >= 3600 -> "${seconds / 3600} ghante"
+            seconds >= 60 -> "${seconds / 60} minute"
+            else -> "$seconds second"
+        }
+        return if (success) "$readable ka timer laga diya ⏱️" else "Timer set nahi ho paaya."
     }
 }

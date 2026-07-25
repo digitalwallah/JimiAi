@@ -57,7 +57,9 @@ class WakeWordService : Service() {
     companion object {
         const val CHANNEL_ID = "jimi_wakeword_channel"
         const val NOTIF_ID = 42
-        const val WAKE_WORD = "jimi"
+        // Common mishears bhi include kiye — "Jimi" jaisa naam recognizer kabhi-kabhi
+        // thoda alag transcribe kar deta hai, isliye sirf exact "jimi" pe depend nahi karte.
+        val WAKE_WORDS = listOf("jimi", "jimmy", "zimmy", "jimini", "jimy")
         private const val WATCHDOG_REQUEST_CODE = 99
 
         // Persona ke hisaab se greeting variety - har baar wake word sunte hi in me se random pick hoga.
@@ -178,9 +180,15 @@ class WakeWordService : Service() {
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()?.lowercase() ?: ""
                     onHeard(text)
-                    restartSoon()
+                    restartSoon(quick = true)
                 }
-                override fun onError(error: Int) { restartSoon() }
+                override fun onError(error: Int) {
+                    // "No speech" / timeout silence mein normal hai — inpe fast-restart karke
+                    // mic indicator baar-baar flicker karna avoid karte hain, thoda slow retry karte hain.
+                    val isSilenceError = error == SpeechRecognizer.ERROR_NO_MATCH ||
+                        error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                    restartSoon(quick = !isSilenceError)
+                }
                 override fun onReadyForSpeech(params: Bundle?) {}
                 override fun onBeginningOfSpeech() {}
                 override fun onRmsChanged(rmsdB: Float) {}
@@ -199,7 +207,9 @@ class WakeWordService : Service() {
             rec.startListening(
                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
+                    // "Jimi" (English proper noun) + Hinglish commands dono en-IN mode mein
+                    // zyada reliably recognize hote hain — hi-IN mode "Jimi" ko aksar galat sun leta tha.
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 }
             )
@@ -209,16 +219,18 @@ class WakeWordService : Service() {
         }
     }
 
-    private fun restartSoon() {
-        // Tiny delay avoids hammering the recognizer in a tight loop.
-        handler.postDelayed({ startListeningCycle() }, 400)
+    /** quick=true (result mila, chahe wake-word na ho) toh 400ms mein turant restart.
+     * quick=false (silence/timeout error) toh 1500ms wait karke restart — isse chup rehne
+     * par mic indicator baar-baar nahi chamakta. */
+    private fun restartSoon(quick: Boolean) {
+        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 1500)
     }
 
     private fun onHeard(text: String) {
         if (text.isBlank()) return
 
         if (!awaitingCommand) {
-            if (text.contains(WAKE_WORD)) {
+            if (WAKE_WORDS.any { text.contains(it) }) {
                 wakeScreen()
                 awaitingCommand = true
                 updateNotification("Bolo, Jimi sun raha hai...")
@@ -226,12 +238,17 @@ class WakeWordService : Service() {
                 speechHelper.speak(greetings.random())
                 // If they said the whole thing in one breath ("Jimi, Rahul ko..."),
                 // treat whatever comes after the wake word as the command right away.
-                val afterWakeWord = text.substringAfter(WAKE_WORD).trim(',', ' ', '.')
+                val matchedWord = WAKE_WORDS.first { text.contains(it) }
+                val afterWakeWord = text.substringAfter(matchedWord).trim(',', ' ', '.')
                 if (afterWakeWord.length > 3) {
                     awaitingCommand = false
                     updateNotification("Jimi sun raha hai... 👂")
                     runCommand(afterWakeWord)
                 }
+            } else {
+                // Wake-word match nahi hua — debug ke liye notification mein dikha dete hain
+                // ki asal mein kya suna gaya, taaki mis-recognition pattern pakda ja sake.
+                updateNotification("Suna: \"$text\" (wake-word nahi mila) — sun raha hoon... 👂")
             }
         } else {
             awaitingCommand = false

@@ -1,105 +1,91 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Internet for Claude API + YouTube Data API -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/> 41-- Read contacts, knows /nunters and can store a Language-style per contact
 
-    <!-- Read contacts, so Jimi knows names/numbers and can store a language-style per contact -->
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
+<uses-permi: android:name="android.permission.READ CONTACTS"/>
 
-    <!-- Query installed apps (Android 11+ needs this to see other apps) -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" xmlns:tools="http://schemas.android.com/tools" />
+Query Installed apps (Android 11 ne needs this to see other apps)
 
-    <!-- Foreground service, so Jimi keeps running while it operates other apps -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permissi and me="android.permissi QUERY ALL PACKAGES tools: ignore="QueryAll PackagesPermission"/>
 
-    <!-- Voice input (mic button) aur voice output (Jimi bol ke reply de sake) -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+Foreground Jimi keeps running w es other apps
 
-    <!-- Seedha call lagane ke liye (permission diye bina Jimi sirf dialer kholega) -->
-    <uses-permission android:name="android.permission.CALL_PHONE" />
+<uses-permission android:name="android.permission.FOREGROUND SERVICE"/>
 
-    <!-- Always-listening background wake-word service -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+ame="android.permission.POST_NOTIFICATIONS"/> aur voice output ( ke reply de sake) <uses-permissi android <1-- Voice Inout (mic but
 
-    <!-- onTaskRemoved restart alarm ke liye (app swipe hone ke baad service wapas jagane ke liye) -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+<uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
-    <!-- Incoming call detect karke caller ka naam announce karne ke liye -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+dialer kholega)
 
-    <!-- WhatsApp automation ke button-tap fallback overlay/diagnostics ke liye,
-         aur ye declare karne se hi "Display over other apps" Settings mein dikhta hai -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+<uses-permission android:name="android.permission.CALL PHONE"/>
 
-    <!-- Brightness aur rotation-lock control ke liye — special permission hai,
-         user ko ek baar manually allow karni padegi (SystemControlHelper.requestWriteSettingsPermission()
-         wo screen seedha khol deta hai) -->
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+Always-listening background wake-word sert <uses-permission android:name="android.permission. FOREGROUND SERVICE MICROPHONE"/>
 
-    <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="Jimi"
-        android:theme="@style/Theme.JimiAI"
-        android:usesCleartextTraffic="false">
+<uses-permission android:name="android.permission.WAKE LOCK"/>
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+the hone ke baad service wapas jagane ke liye)→→→→→ <uses-permission android:name="android.permission.SCHEDULE EXACT ALARM"/>
 
-        <!-- The core Accessibility Service: this is what lets Jimi "see" the screen
-             and tap/type on behalf of the user in any app (WhatsApp, YouTube, etc.) -->
-        <service
-            android:name=".JimiAccessibilityService"
-            android:exported="true"
-            android:label="Jimi Assistant"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
+uses-permission android:name="android.permission.REQUEST IGNORE BATTERY OPTIMIZATIONS"/> onTaskRem
 
-        <!-- Background always-listening wake-word service ("Jimi" bolte hi jaag jaata hai) -->
-        <service
-            android:name=".WakeWordService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
+ming <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-        <!-- Proactive check-in ke liye BroadcastReceiver - alarm fire hone par notification dikhata hai -->
-        <receiver
-            android:name=".CheckInReceiver"
-            android:exported="false" />
+<uses-permission android:name="android.permission.READ_CALL LOG"/>
 
-        <!-- Incoming/outgoing call state detect karke caller ka naam announce karta hai -->
-        <receiver
-            android:name=".CallAnnouncer"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.PHONE_STATE" />
-            </intent-filter>
-        </receiver>
+uses-permission android:name="android.permission.ANSWER PHONE CALLS"/>
 
-        <!-- Har ~15 min mein check karta hai ki WakeWordService zinda hai ya OEM ne maar diya;
-             agar mar gayi ho to wapas start karta hai (FunTouch/OriginOS jaise OS ke liye) -->
-        <receiver
-            android:name=".WakeWordWatchdogReceiver"
-            android:exported="false" />
+WhatsApp au ation ke button-tap fallback over Lay/diagnostics ke liye,
 
-    </application>
+Brightness over other apps Settings nein dikhta hai <uses-permission android:name="android.permission.SYSTEM_ALERT WINDOW"/>
+
+otation-lock contr ke liye special permission hal user ko ek baar manually allow karni padegi (SystemControlHelper.requestwriteSettingsPermission()
+
+khol deta hat <uses-permission android:name="android.permission.WRITE_SETTINGS" tools: ignore "ProtectedPermissions"/>
+
+<application android:alloaBackup="true" android:icon="@mipmap/ic launcher android:label="Jimi"
+
+<activity android:name=".MainActivity" android:exported="true">
+
+▼ android:theme="@style/Theme. JiniAl" android: usesCleartextTraffic-"false">
+
+<intent-filter> <action android:name="android.intent.action.MAIN"/>
+
+<category android:name="android.intent.category. LAUNCHER"/>
+
+</intent-filter> </activity>
+
+Accessibility Service, this is what lets Jimi "see" the screen and tap/type on behalf of the user in any app (WhatsApp, youtube, etc.
+
+▼<service android:name=".Jim1AccessibilityService" android:exported-"true" android:label-"Jimi Assistant"
+
+android:permission="android.permission.BIND ACCESSIBILITY SERVICE">
+
+▼<intent-filter>
+
+<action android:name="android ccessibilityservice.AccessibilityService"/>
+
+</intent-filter:
+
+<meta-data android:name="android.accessibilityservice" android: resource="@xml/accessibility_service_config"/> </service>
+
+Hackground always listening wake-word service ("Jii" balte hi jaag jaata hai) <service android:name=". WakewordService" android:exported-"false" android: foregroundServiceType-"microphone"/>
+
+1 Proactive check-in ke Liye UroadcastReceive
+
+alans fire hone par nocification dikhala hai
+
+<receiver android:name=". CheckInReceiver" android:exported-"false"/> outgoing oming/outgoing call state detec
+
+intent-filter> ▼<receiver android:name=".CallAnnouncer" android: exported="true">
+
+<action android:name="android.intent.action.PHONE_STATE"/> -filter>
+
+</intent </receiver>
+
+sunce sarta hal
+
+Har 15 min mein check karta hai ki wakewordService zinda hei ya CCM ne maar diya: agar mar gays ho to wapas start karta hat (FunTouch/Origings jasse as ke liye
+
+<receiver android:name=".WakewordwatchdogReceiver" android:exported-"false"/> </application>
+
 </manifest>

@@ -47,17 +47,7 @@ import kotlinx.coroutines.launch
  * NOTE ON THE MIC INDICATOR: Android shows a system-level privacy dot/icon whenever
  * SpeechRecognizer.startListening() is active — this is an OS security feature, not
  * something an app can suppress, and it appears on EVERY always-listening app (Assistant,
- * WhatsApp, etc.), not just Jimi. What we CAN control is how often we restart the listening
- * cycle: EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS below makes each cycle listen for
- * a longer stretch before giving up on silence, so the indicator flickers far less often than
- * the old rapid-restart approach, while also giving the recognizer more time to catch a full
- * sentence (which also improves accuracy).
- *
- * FIX (this version): removed EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS. It was forcing every
- * listening cycle to stay open at least 15 seconds regardless of silence, which fought the
- * 2.5s silence-timeout below, made each cycle much slower, and kept the mic open long enough
- * that the OEM's background-killer was more likely to kill the service. Removing it restores
- * the fast, responsive cycle behavior.
+ * WhatsApp, etc.), not just Jimi.
  */
 class WakeWordService : Service() {
 
@@ -232,16 +222,11 @@ class WakeWordService : Service() {
                     // Top guess ke alawa 4 aur alternatives bhi maangte hain — accuracy ke liye,
                     // taaki ek chhota mishear bhi wake-word detection miss na kare.
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-                    // Ek listening-window ko lamba karte hain (chup rehne pe bhi ~2.5s tak
-                    // wait karega band karne se pehle) — isse (a) poora sentence pakadne ka
-                    // zyada time milta hai (accuracy up) aur (b) cycle utni jaldi restart
-                    // nahi hota, isliye mic-indicator utni baar-baar nahi chamakta.
-                    // NOTE: EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS jaanbujh kar yahan NAHI hai —
-                    // wo har cycle ko forcibly 15s tak khula rakhta tha chahe silence ho, jo isi
-                    // silence-timeout se contradict karta tha aur mic ko zaroorat se zyada der
-                    // khula rakhta tha (OEM background-killer trigger karne ka bada reason).
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
+                    // Chup rehne pe ~1.2s tak wait karega band karne se pehle — na itna chhota
+                    // ki flicker ho, na itna bada ki response atak jaye (pehle 2.5s + forced
+                    // 15s minimum-length tha, jisse Jimi "atak" gaya lagta tha).
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
                 }
             )
         } catch (e: Exception) {
@@ -251,10 +236,10 @@ class WakeWordService : Service() {
     }
 
     /** quick=true (result mila, chahe wake-word na ho) toh 400ms mein turant restart.
-     * quick=false (silence/timeout error) toh 2000ms wait karke restart — isse chup rehne
-     * par mic indicator baar-baar nahi chamakta. */
+     * quick=false (silence/timeout error) toh 1500ms wait karke restart — isse chup rehne
+     * par mic indicator baar-baar nahi chamakta, lekin response mein zyada der bhi nahi lagti. */
     private fun restartSoon(quick: Boolean) {
-        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 2000)
+        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 1500)
     }
 
     private fun onHeard(guesses: List<String>) {

@@ -17,44 +17,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/**
- * Runs as a foreground service so Android allows it to keep the mic "warm" even with
- * the screen off. It continuously restarts Android's SpeechRecognizer in short bursts,
- * listening for the word "Jimi". When heard:
- *   1. Wakes the screen (PowerManager wake lock)
- *   2. Listens for the actual command that follows
- *   3. Runs it through the same CommandRouter used by the mic button / text box
- *   4. Speaks the result back
- *
- * NOTE ON BATTERY: continuously restarting SpeechRecognizer is noticeably more battery-hungry
- * than a dedicated low-power wake-word engine (e.g. Picovoice Porcupine), because it briefly
- * uses cloud/on-device STT every cycle rather than a tiny always-on keyword model. It works
- * fine for personal use; if battery drain bothers you, swapping in Porcupine later is a
- * drop-in replacement for the listening loop.
- *
- * NOTE ON LOCK SCREEN: if your phone has a PIN/pattern/fingerprint lock, Jimi CANNOT and
- * WILL NOT bypass it (that would be a serious security hole). It wakes the screen so you can
- * unlock normally, then continues.
- *
- * NOTE ON OEM BACKGROUND KILL: vivo/iQOO (FunTouch/OriginOS), MIUI, ColorOS etc. run their
- * own background-process killer on top of standard Android, which can silently kill this
- * service even with battery-optimization exemption granted. `scheduleWatchdog()` below fights
- * this by periodically checking (independent of onTaskRemoved) whether the service is still
- * alive and restarting it if not. For this to actually stick, the user also needs to allow
- * "Autostart"/"Background power consumption" for Jimi in the OEM's own settings
- * (MainActivity.requestAutostartPermission() tries to open that screen directly).
- *
- * NOTE ON THE MIC INDICATOR: Android shows a system-level privacy dot/icon whenever
- * SpeechRecognizer.startListening() is active — this is an OS security feature, not
- * something an app can suppress, and it appears on EVERY always-listening app.
- *
- * NOTE ON RECOGNIZER EXTRAS: intentionally kept minimal here (no EXTRA_MAX_RESULTS,
- * no custom silence-length extras). Some OEM speech-recognizer implementations silently
- * fail (repeated onError with no visible symptom) when given bundle extras they don't
- * support — this happened on this project once. If you want to re-add those for extra
- * accuracy later, test carefully and watch the notification (which now also shows error
- * codes) to confirm the recognizer isn't silently failing.
- */
 class WakeWordService : Service() {
 
     private var recognizer: SpeechRecognizer? = null
@@ -68,12 +30,22 @@ class WakeWordService : Service() {
     companion object {
         const val CHANNEL_ID = "jimi_wakeword_channel"
         const val NOTIF_ID = 42
-        // Common mishears bhi include kiye — "Jimi" jaisa naam recognizer kabhi-kabhi
-        // thoda alag transcribe kar deta hai, isliye sirf exact "jimi" pe depend nahi karte.
-        val WAKE_WORDS = listOf("jimi", "jimmy", "zimmy", "jimini", "jimy")
         private const val WATCHDOG_REQUEST_CODE = 99
 
-        // Persona ke hisaab se greeting variety - har baar wake word sunte hi in me se random pick hoga.
+        // Exact-spelling list ke bajaye pattern-matching use karte hain — isse "Jimi" ki
+        // HAR practical spelling automatically pakdi jaati hai, chahe Roman script mein ho
+        // ("jimi", "jimmy", "jeemy", "jimmie"...) ya Devanagari mein ("जिमी", "जिम", "ज़िमी",
+        // "जिम्मी"...). "Hi Jimi" / "हाय जिमी" jaisa koi prefix ho to bhi problem nahi,
+        // kyunki hum pattern ko poore text ke andar kahin bhi dhoondhte hain.
+        private val WAKE_WORD_ROMAN = Regex("j[iey]+m+[iy]?", RegexOption.IGNORE_CASE)
+        private val WAKE_WORD_DEVANAGARI = Regex("ज़?ज[िी]?म+[्िीय]?")
+
+        private fun findWakeWordMatch(text: String): String? {
+            WAKE_WORD_ROMAN.find(text)?.let { return it.value }
+            WAKE_WORD_DEVANAGARI.find(text)?.let { return it.value }
+            return null
+        }
+
         private val JARVIS_GREETINGS = listOf("Ji bolo", "Boliye", "Sunn raha hoon", "Ji, kahiye")
         private val MYRA_GREETINGS = listOf("Haanji bolo na", "Kaho kya scene hai", "Bolo bolo, sun rahi hoon", "Ji bataiye")
 
@@ -91,8 +63,6 @@ class WakeWordService : Service() {
             context.stopService(Intent(context, WakeWordService::class.java))
         }
 
-        /** Har 15 min mein service ki zinda-hone-ki check karega. Ye Doze-friendly
-         * inexact repeating alarm hai, isliye SCHEDULE_EXACT_ALARM ki zaroorat nahi padti. */
         fun scheduleWatchdog(context: Context) {
             val intent = Intent(context, WakeWordWatchdogReceiver::class.java)
             val pendingIntent = PendingIntent.getBroadcast(
@@ -140,8 +110,6 @@ class WakeWordService : Service() {
         speechHelper.shutdown()
     }
 
-    /** FuntouchOS/MIUI jaise OEMs app swipe hote hi service ko turant maar dete hain.
-     * Ek chhota alarm schedule karte hain jo kuch second baad service ko wapas zinda kar de. */
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         val restartIntent = Intent(applicationContext, WakeWordService::class.java)
@@ -180,8 +148,6 @@ class WakeWordService : Service() {
         manager.notify(NOTIF_ID, buildNotification(text))
     }
 
-    /** Recognizer object ek hi baar banate hain (baar-baar destroy-create karna hi
-     * screen-off reliability ka sabse bada dushman tha). */
     private fun setupRecognizer() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             updateNotification("Is device pe speech recognition available nahi hai ❌")
@@ -197,14 +163,9 @@ class WakeWordService : Service() {
                     restartSoon(quick = true)
                 }
                 override fun onError(error: Int) {
-                    // "No speech" / timeout silence mein normal hai — inpe fast-restart karke
-                    // mic indicator baar-baar flicker karna avoid karte hain, thoda slow retry karte hain.
                     val isSilenceError = error == SpeechRecognizer.ERROR_NO_MATCH ||
                         error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
                     if (!isSilenceError) {
-                        // Real error hai (network, client, permissions, language-not-supported etc.) —
-                        // notification mein dikhate hain taaki silently-stuck na dikhe, aur
-                        // debugging ke liye error code bhi dikha dete hain.
                         updateNotification("Recognizer error ($error) — retry ho raha hai... 👂")
                     }
                     restartSoon(quick = isSilenceError)
@@ -220,7 +181,6 @@ class WakeWordService : Service() {
         }
     }
 
-    /** Same recognizer instance pe dobara startListening call karta hai - naya object nahi banata. */
     private fun startListeningCycle() {
         val rec = recognizer ?: return
         try {
@@ -232,7 +192,6 @@ class WakeWordService : Service() {
                 }
             )
         } catch (e: Exception) {
-            // Kabhi-kabhi "already listening" jaisi state aa jaati hai - reset karke retry.
             handler.postDelayed({ setupRecognizer(); startListeningCycle() }, 800)
         }
     }
@@ -245,24 +204,22 @@ class WakeWordService : Service() {
         if (text.isBlank()) return
 
         if (!awaitingCommand) {
-            if (WAKE_WORDS.any { text.contains(it) }) {
+            val matched = findWakeWordMatch(text)
+            if (matched != null) {
                 wakeScreen()
                 awaitingCommand = true
                 updateNotification("Bolo, Jimi sun raha hai...")
                 val greetings = if (SettingsStore.getPersona(this) == "myra") MYRA_GREETINGS else JARVIS_GREETINGS
                 speechHelper.speak(greetings.random())
-                // If they said the whole thing in one breath ("Jimi, Rahul ko..."),
-                // treat whatever comes after the wake word as the command right away.
-                val matchedWord = WAKE_WORDS.first { text.contains(it) }
-                val afterWakeWord = text.substringAfter(matchedWord).trim(',', ' ', '.')
+                // Poore ek saans mein bola gaya command ("Jimi, WhatsApp pe Rahul ko...")
+                // wake-word ke baad ka hissa turant command ke roop mein bhej dete hain.
+                val afterWakeWord = text.substringAfter(matched).trim(',', ' ', '.')
                 if (afterWakeWord.length > 3) {
                     awaitingCommand = false
                     updateNotification("Jimi sun raha hai... 👂")
                     runCommand(afterWakeWord)
                 }
             } else {
-                // Wake-word match nahi hua — debug ke liye notification mein dikha dete hain
-                // ki asal mein kya suna gaya.
                 updateNotification("Suna: \"$text\" (wake-word nahi mila) — sun raha hoon... 👂")
             }
         } else {
@@ -284,7 +241,6 @@ class WakeWordService : Service() {
         }
     }
 
-    /** Turns the screen on briefly so the user sees what's happening / can unlock if needed. */
     private fun wakeScreen() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock?.let { if (it.isHeld) it.release() }

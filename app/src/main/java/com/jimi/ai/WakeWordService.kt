@@ -32,18 +32,16 @@ class WakeWordService : Service() {
         const val NOTIF_ID = 42
         private const val WATCHDOG_REQUEST_CODE = 99
 
-        // Exact-spelling list ke bajaye pattern-matching use karte hain — isse "Jimi" ki
-        // HAR practical spelling automatically pakdi jaati hai, chahe Roman script mein ho
-        // ("jimi", "jimmy", "jeemy", "jimmie"...) ya Devanagari mein ("जिमी", "जिम", "ज़िमी",
-        // "जिम्मी"...). "Hi Jimi" / "हाय जिमी" jaisa koi prefix ho to bhi problem nahi,
-        // kyunki hum pattern ko poore text ke andar kahin bhi dhoondhte hain.
-        private val WAKE_WORD_ROMAN = Regex("j[iey]+m+[iy]?", RegexOption.IGNORE_CASE)
-        private val WAKE_WORD_DEVANAGARI = Regex("ज़?ज[िी]?म+[्िीय]?")
+        // Simple substring-contains check — regex se zyada predictable, kisi Unicode
+        // edge-case mein chookne ka risk nahi. "जिम" substring khud "जिमी", "जिम्मी",
+        // "जिमि" sabke andar automatically aa jaata hai kyunki ye unka prefix hai.
+        private val WAKE_WORD_FRAGMENTS = listOf(
+            "jim", "zim", "gimi", "gimmy",   // Roman spellings
+            "जिम", "जीम", "ज़िम", "ज़ीम"        // Devanagari — "जिमी"/"जिम्मी"/"जीमी" etc. sab inme cover ho jaate hain
+        )
 
         private fun findWakeWordMatch(text: String): String? {
-            WAKE_WORD_ROMAN.find(text)?.let { return it.value }
-            WAKE_WORD_DEVANAGARI.find(text)?.let { return it.value }
-            return null
+            return WAKE_WORD_FRAGMENTS.firstOrNull { text.contains(it, ignoreCase = true) }
         }
 
         private val JARVIS_GREETINGS = listOf("Ji bolo", "Boliye", "Sunn raha hoon", "Ji, kahiye")
@@ -211,8 +209,6 @@ class WakeWordService : Service() {
                 updateNotification("Bolo, Jimi sun raha hai...")
                 val greetings = if (SettingsStore.getPersona(this) == "myra") MYRA_GREETINGS else JARVIS_GREETINGS
                 speechHelper.speak(greetings.random())
-                // Poore ek saans mein bola gaya command ("Jimi, WhatsApp pe Rahul ko...")
-                // wake-word ke baad ka hissa turant command ke roop mein bhej dete hain.
                 val afterWakeWord = text.substringAfter(matched).trim(',', ' ', '.')
                 if (afterWakeWord.length > 3) {
                     awaitingCommand = false

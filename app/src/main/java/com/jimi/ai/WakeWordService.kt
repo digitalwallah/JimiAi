@@ -46,8 +46,14 @@ import kotlinx.coroutines.launch
  *
  * NOTE ON THE MIC INDICATOR: Android shows a system-level privacy dot/icon whenever
  * SpeechRecognizer.startListening() is active — this is an OS security feature, not
- * something an app can suppress, and it appears on EVERY always-listening app (Assistant,
- * WhatsApp, etc.), not just Jimi.
+ * something an app can suppress, and it appears on EVERY always-listening app.
+ *
+ * NOTE ON RECOGNIZER EXTRAS: intentionally kept minimal here (no EXTRA_MAX_RESULTS,
+ * no custom silence-length extras). Some OEM speech-recognizer implementations silently
+ * fail (repeated onError with no visible symptom) when given bundle extras they don't
+ * support — this happened on this project once. If you want to re-add those for extra
+ * accuracy later, test carefully and watch the notification (which now also shows error
+ * codes) to confirm the recognizer isn't silently failing.
  */
 class WakeWordService : Service() {
 
@@ -177,17 +183,17 @@ class WakeWordService : Service() {
     /** Recognizer object ek hi baar banate hain (baar-baar destroy-create karna hi
      * screen-off reliability ka sabse bada dushman tha). */
     private fun setupRecognizer() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) return
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            updateNotification("Is device pe speech recognition available nahi hai ❌")
+            return
+        }
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(object : RecognitionListener {
                 override fun onResults(results: Bundle?) {
-                    // Sirf top guess nahi, top 5 tak ke saare alternatives check karte hain —
-                    // ek chhota-sa mishear bhi ab match miss nahi karega agar koi ek
-                    // alternative sahi nikla.
-                    val allGuesses = results
+                    val text = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.map { it.lowercase() } ?: emptyList()
-                    onHeard(allGuesses)
+                        ?.firstOrNull()?.lowercase() ?: ""
+                    onHeard(text)
                     restartSoon(quick = true)
                 }
                 override fun onError(error: Int) {
@@ -195,7 +201,13 @@ class WakeWordService : Service() {
                     // mic indicator baar-baar flicker karna avoid karte hain, thoda slow retry karte hain.
                     val isSilenceError = error == SpeechRecognizer.ERROR_NO_MATCH ||
                         error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-                    restartSoon(quick = !isSilenceError)
+                    if (!isSilenceError) {
+                        // Real error hai (network, client, permissions, language-not-supported etc.) —
+                        // notification mein dikhate hain taaki silently-stuck na dikhe, aur
+                        // debugging ke liye error code bhi dikha dete hain.
+                        updateNotification("Recognizer error ($error) — retry ho raha hai... 👂")
+                    }
+                    restartSoon(quick = isSilenceError)
                 }
                 override fun onReadyForSpeech(params: Bundle?) {}
                 override fun onBeginningOfSpeech() {}
@@ -215,18 +227,8 @@ class WakeWordService : Service() {
             rec.startListening(
                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    // "Jimi" (English proper noun) + Hinglish commands dono en-IN mode mein
-                    // zyada reliably recognize hote hain — hi-IN mode "Jimi" ko aksar galat sun leta tha.
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-                    // Top guess ke alawa 4 aur alternatives bhi maangte hain — accuracy ke liye,
-                    // taaki ek chhota mishear bhi wake-word detection miss na kare.
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-                    // Chup rehne pe ~1.2s tak wait karega band karne se pehle — na itna chhota
-                    // ki flicker ho, na itna bada ki response atak jaye (pehle 2.5s + forced
-                    // 15s minimum-length tha, jisse Jimi "atak" gaya lagta tha).
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
                 }
             )
         } catch (e: Exception) {
@@ -235,22 +237,15 @@ class WakeWordService : Service() {
         }
     }
 
-    /** quick=true (result mila, chahe wake-word na ho) toh 400ms mein turant restart.
-     * quick=false (silence/timeout error) toh 1500ms wait karke restart — isse chup rehne
-     * par mic indicator baar-baar nahi chamakta, lekin response mein zyada der bhi nahi lagti. */
     private fun restartSoon(quick: Boolean) {
-        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 1500)
+        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 1200)
     }
 
-    private fun onHeard(guesses: List<String>) {
-        if (guesses.isEmpty() || guesses.all { it.isBlank() }) return
-
-        // Jis bhi alternative mein wake-word mila, usi ko "sahi transcription" maan lete hain.
-        val matchedGuess = guesses.firstOrNull { g -> WAKE_WORDS.any { g.contains(it) } }
-        val text = matchedGuess ?: guesses.first()
+    private fun onHeard(text: String) {
+        if (text.isBlank()) return
 
         if (!awaitingCommand) {
-            if (matchedGuess != null) {
+            if (WAKE_WORDS.any { text.contains(it) }) {
                 wakeScreen()
                 awaitingCommand = true
                 updateNotification("Bolo, Jimi sun raha hai...")
@@ -267,7 +262,7 @@ class WakeWordService : Service() {
                 }
             } else {
                 // Wake-word match nahi hua — debug ke liye notification mein dikha dete hain
-                // ki asal mein kya suna gaya, taaki mis-recognition pattern pakda ja sake.
+                // ki asal mein kya suna gaya.
                 updateNotification("Suna: \"$text\" (wake-word nahi mila) — sun raha hoon... 👂")
             }
         } else {

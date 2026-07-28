@@ -12,7 +12,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 class PaymentQRActivity : AppCompatActivity() {
 
     // TODO: replace with your real UPI ID and name
-    private val UPI_ID = "yourupi@bank"
+    private val UPI_ID = "mdyasin7860@ybl"
     private val PAYEE_NAME = "Jimi App"
 
     private var selectedPlan = "1_month"

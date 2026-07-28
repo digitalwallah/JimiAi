@@ -34,6 +34,13 @@ android {
     buildFeatures {
         viewBinding true
     }
+    buildscript {
+    dependencies {
+        // यह लाइन यहाँ डालें
+        classpath 'com.google.gms:google-services:4.4.1'
+    }
+    }
+    
 }
 
 dependencies {

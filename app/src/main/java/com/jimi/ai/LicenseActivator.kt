@@ -1,4 +1,4 @@
-package com.yourpackage.jimi
+package com.jimi.ai
 
 import android.content.Context
 import android.content.SharedPreferences

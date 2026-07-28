@@ -99,12 +99,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Sab settings ek hi jagah - Accessibility, API keys, persona, voice character,
-     * Always Listening, Auto-send, Check-ins. Jaisa Gemini/ChatGPT mein ek "⚙️" menu ke
-     * peeche sab options hote hain. */
+     * Always Listening, Auto-send, Check-ins, Premium status. Jaisa Gemini/ChatGPT mein
+     * ek "⚙️" menu ke peeche sab options hote hain. */
     private fun showSettingsMenu() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 24, 48, 0)
+        }
+
+        // ---------- PREMIUM STATUS / UPGRADE ----------
+        val isPremium = LicenseActivator.isPremiumActive(this)
+        val btnPremium = Button(this).apply {
+            text = if (isPremium) {
+                "⭐ Premium Active — ${LicenseActivator.getDaysRemaining(this@MainActivity)} din baaki"
+            } else {
+                "🔒 Upgrade to Premium (YouTube unlock karo)"
+            }
+        }
+        btnPremium.setOnClickListener {
+            startActivity(Intent(this, PaymentQRActivity::class.java))
         }
 
         val btnAccessibility = Button(this).apply {
@@ -175,6 +188,7 @@ class MainActivity : AppCompatActivity() {
             isChecked = SettingsStore.isCheckInEnabled(this@MainActivity)
         }
 
+        layout.addView(btnPremium)
         layout.addView(btnAccessibility)
         layout.addView(claudeInput)
         layout.addView(youtubeInput)

@@ -138,8 +138,25 @@ class ClaudeApiClient(private val apiKey: String) {
         """.trimIndent()
 
         val raw = ask(system, userCommand).trim()
-        val cleaned = raw.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-        return JSONObject(cleaned)
+        return try {
+            val cleaned = extractJson(raw)
+            JSONObject(cleaned)
+        } catch (e: Exception) {
+            // Parsing fail hui — command execute karne ke bajaye safe fallback: general chat
+            JSONObject().apply { put("action", "chat_reply") }
+        }
+    }
+
+    /** Model ke response se sirf JSON part nikaalta hai, chahe aage-peeche
+     * koi extra text/markdown ho — pehle '{' se lekar last '}' tak. */
+    private fun extractJson(raw: String): String {
+        var cleaned = raw.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        val start = cleaned.indexOf('{')
+        val end = cleaned.lastIndexOf('}')
+        if (start != -1 && end != -1 && end > start) {
+            cleaned = cleaned.substring(start, end + 1)
+        }
+        return cleaned
     }
 
     fun generateStyledReply(contactName: String, styleNote: String, intent: String): String {

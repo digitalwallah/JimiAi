@@ -61,6 +61,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Payment QR screen: user yahan se UPI QR scan karke UTR/phone submit karta hai -->
+        <activity
+            android:name=".PaymentQRActivity"
+            android:exported="false" />
+
         <!-- The core Accessibility Service: this is what lets Jimi "see" the screen
              and tap/type on behalf of the user in any app (WhatsApp, YouTube, etc.) -->
         <service

@@ -1,4 +1,4 @@
-package com.yourpackage.jimi
+package com.jimi.ai
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration

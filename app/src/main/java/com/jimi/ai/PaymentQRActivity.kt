@@ -1,1 +1,124 @@
+package com.yourpackage.jimi
 
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.os.Bundle
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+
+class PaymentQRActivity : AppCompatActivity() {
+
+    // TODO: replace with your real UPI ID and name
+    private val UPI_ID = "yourupi@bank"
+    private val PAYEE_NAME = "Jimi App"
+
+    private var selectedPlan = "1_month"
+    private var selectedAmount = 99
+    private var currentDocId: String? = null
+    private var listenerRegistration: ListenerRegistration? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_payment_qr)
+
+        // ---- Wire up your existing views (adjust IDs to your layout) ----
+        val btnOneMonth = findViewById<android.widget.Button>(R.id.btnOneMonth)
+        val btnFourMonth = findViewById<android.widget.Button>(R.id.btnFourMonth)
+        val qrImageView = findViewById<android.widget.ImageView>(R.id.qrImageView)
+        val etUtr = findViewById<android.widget.EditText>(R.id.etUtr)
+        val etPhone = findViewById<android.widget.EditText>(R.id.etPhone)
+        val btnSubmit = findViewById<android.widget.Button>(R.id.btnSubmit)
+        val tvStatus = findViewById<android.widget.TextView>(R.id.tvStatus)
+
+        fun refreshQr() {
+            val upiUri = "upi://pay?pa=$UPI_ID&pn=${PAYEE_NAME.replace(" ", "%20")}" +
+                    "&am=$selectedAmount&cu=INR&tn=JimiPremium_$selectedPlan"
+            qrImageView.setImageBitmap(generateQrBitmap(upiUri))
+        }
+
+        btnOneMonth.setOnClickListener {
+            selectedPlan = "1_month"
+            selectedAmount = 99
+            refreshQr()
+        }
+
+        btnFourMonth.setOnClickListener {
+            selectedPlan = "4_month"
+            selectedAmount = 299
+            refreshQr()
+        }
+
+        refreshQr() // default QR shown on load
+
+        btnSubmit.setOnClickListener {
+            val utr = etUtr.text.toString().trim()
+            val phone = etPhone.text.toString().trim()
+
+            if (utr.length < 6) {
+                Toast.makeText(this, "Sahi UTR/Transaction ID daalo", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (phone.length != 10) {
+                Toast.makeText(this, "Sahi 10-digit phone number daalo", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            btnSubmit.isEnabled = false
+            tvStatus.text = "Submitting..."
+
+            PaymentVerificationHelper.submitPaymentRequest(
+                phone = phone,
+                utr = utr,
+                plan = selectedPlan,
+                amount = selectedAmount,
+                onSuccess = { docId ->
+                    currentDocId = docId
+                    tvStatus.text = "Verification pending... payment approve hote hi yahan turant update aa jaayega."
+                    startListening(docId, tvStatus)
+                },
+                onFailure = {
+                    btnSubmit.isEnabled = true
+                    tvStatus.text = "Submit fail ho gaya, dobara try karo."
+                }
+            )
+        }
+    }
+
+    private fun startListening(docId: String, tvStatus: android.widget.TextView) {
+        listenerRegistration = PaymentVerificationHelper.listenForApproval(
+            docId = docId,
+            onApproved = { request ->
+                LicenseActivator.activatePremium(this, request.plan)
+                tvStatus.text = "Payment approved! Premium activated."
+                Toast.makeText(this, "Premium unlocked", Toast.LENGTH_LONG).show()
+                finish()
+            },
+            onRejected = {
+                tvStatus.text = "Payment reject hua. Sahi UTR check karke dobara submit karo."
+            },
+            onStillPending = {
+                tvStatus.text = "Verification pending..."
+            }
+        )
+    }
+
+    private fun generateQrBitmap(content: String, size: Int = 600): Bitmap {
+        val writer = QRCodeWriter()
+        val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
+            }
+        }
+        return bitmap
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        listenerRegistration?.remove()
+    }
+}

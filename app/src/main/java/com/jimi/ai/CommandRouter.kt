@@ -25,7 +25,17 @@ class CommandRouter(private val context: Context) {
 
             "whatsapp_send" -> handleWhatsApp(decision, command)
 
-            "youtube_play" -> handleYouTube(decision)
+            "youtube_play" -> {
+                if (LicenseActivator.isPremiumActive(context)) {
+                    handleYouTube(decision)
+                } else {
+                    val intent = android.content.Intent(context, PaymentQRActivity::class.java).apply {
+                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                    "YouTube play ek premium feature hai — payment QR khol diya hai, complete karke phir try karna 🔒"
+                }
+            }
 
             "make_call" -> handleCall(decision)
 
@@ -76,8 +86,6 @@ class CommandRouter(private val context: Context) {
         val existing = db.userFactDao().findByKey(key)
 
         if (existing != null && existing.value.equals(value, ignoreCase = true)) {
-            // Fact already saved hai same value ke saath - ye ek query tha, naya info nahi.
-            // "Yaad rakh liya" dobara bolne ke bajaye, saved fact use karke natural jawab do.
             return handleGeneralChat(originalCommand, savedMemoriesText)
         }
 
@@ -127,7 +135,6 @@ class CommandRouter(private val context: Context) {
             command
         )
 
-        // Is exchange ka chhota summary save karo, future context ke liye.
         try {
             db.conversationMemoryDao().insert(
                 ConversationMemory(summary = "User: $command | Jimi: ${reply.take(100)}")
@@ -138,7 +145,7 @@ class CommandRouter(private val context: Context) {
         return reply
     }
 
-  /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel.
+    /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel.
      * Dono mein mood-aware acknowledgment bhi add hai - agar user ke message mein emotional cue ho
      * (tired, bura din, khush, stressed, etc.), toh command execute karne se pehle usko thoda
      * acknowledge kare, phir kaam kare. */
@@ -170,8 +177,6 @@ class CommandRouter(private val context: Context) {
 
         val intentText = decision.optString("message").ifBlank { originalCommand }
         val draftedMessage = if (decision.optString("message").isNotBlank()) {
-            // User ne pehle hi bata diya ki kya likhna hai - iske words ke saath chedkhaani nahi,
-            // seedha wahi bhejo (bas thoda clean-up, naya content generate mat karo).
             intentText.trim()
         } else {
             claude.generateStyledReply(contactName, styleNote, intentText)
@@ -237,7 +242,6 @@ class CommandRouter(private val context: Context) {
             context.startActivity(intent)
             "$contactName ko call laga raha hoon 📞"
         } else {
-            // Permission nahi hai toh fallback - dialer khol do, user khud tap kare.
             val intent = android.content.Intent(android.content.Intent.ACTION_DIAL,
                 android.net.Uri.parse("tel:$phone")).apply {
                 flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK

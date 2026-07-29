@@ -143,9 +143,6 @@ object SystemControlHelper {
 
     // ---------- ALARM ----------
 
-    /** Ab exception ka exact message bhi expose karta hai (lastAlarmError se) —
-     * pehle catch block silently swallow kar raha tha, isliye pata hi nahi chalta
-     * tha startActivity() kis wajah se fail ho raha hai. */
     var lastAlarmError: String? = null
         private set
 
@@ -157,6 +154,10 @@ object SystemControlHelper {
                 putExtra(AlarmClock.EXTRA_MESSAGE, message)
                 putExtra(AlarmClock.EXTRA_SKIP_UI, true)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            if (intent.resolveActivity(context.packageManager) == null) {
+                lastAlarmError = "Koi Clock/Alarm app is device pe nahi mila jo alarm set karne ka intent handle kare"
+                return false
             }
             context.startActivity(intent)
             lastAlarmError = null

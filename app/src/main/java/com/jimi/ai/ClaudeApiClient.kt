@@ -6,6 +6,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 class ClaudeApiClient(private val apiKey: String) {
@@ -58,14 +59,29 @@ class ClaudeApiClient(private val apiKey: String) {
         }
     }
 
+    /** NAYA: current device time nikaal ke Gemini ko context ke roop mein deta hai —
+     * pehle model ko pata hi nahi chalta tha abhi kitne baje hain, isliye "1 baje" jaisa
+     * ambiguous (AM/PM na bola gaya) time bolne par wo hamesha "subah" guess kar leta tha,
+     * chahe user ka matlab abhi-abhi aane wale "1 PM" se ho — jisse alarm galat time pe
+     * (12+ ghante door) set ho jaata tha aur user ko lagta tha ki kuch hua hi nahi. */
+    private fun currentTimeContext(): String {
+        val cal = Calendar.getInstance()
+        val h = cal.get(Calendar.HOUR_OF_DAY)
+        val m = cal.get(Calendar.MINUTE)
+        return String.format("Abhi ka actual current time hai: %02d:%02d (24-hour format).", h, m)
+    }
+
     fun routeCommand(userCommand: String, recentHistory: String = "", savedMemories: String = ""): JSONObject {
         val memorySection = if (savedMemories.isNotBlank()) "User ki pehle se yaad rakhi hui baatein (Memories):\n$savedMemories\n" else ""
         val historySection = if (recentHistory.isNotBlank()) "Recent conversation:\n$recentHistory\n" else ""
+        val timeSection = currentTimeContext()
 
         val system = """
             Tum Jimi ho, ek Android automation assistant ka "brain". User Hindi/English/Hinglish mix me
             command dega. Tumhara kaam hai command ko classify karke SIRF ek JSON object return karna,
             koi extra text nahi, koi markdown fence nahi.
+
+            $timeSection
 
             Zaroori: Neeche "Recent conversation" diya gaya hai (agar hai). Agar current command
             adhoora/ambiguous lage (jaise "bhej do", "haan kar do", "usko bolo" - jisme contact ya
@@ -99,9 +115,15 @@ class ClaudeApiClient(private val apiKey: String) {
               diya hai, wahi verbatim (ho sake toh us bhasha mein bhi jisme original video ka title likha
               hota hai) query mein daalo.
             - set_alarm ke liye time hamesha 24-hour format mein convert karo: "shaam/sham 5 baje" = 17,
-              "raat 9 baje" ya "raat ke 9" = 21, "subah 7 baje" = 7, "dopahar 2 baje" = 14. Agar user sirf
-              "9 baje" bole bina AM/PM/subah-shaam ke, aur context na ho, toh sabse natural guess lo
-              (jaise akela "9 baje" alarm ke liye usually subah hota hai).
+              "raat 9 baje" ya "raat ke 9" = 21, "subah 7 baje" = 7, "dopahar 2 baje" = 14.
+              AGAR user sirf ek number bole bina AM/PM/subah-shaam ke (jaise sirf "1 baje", "9 baje"),
+              toh upar diye gaye "Abhi ka actual current time" ko dekho aur us number ka WOH occurrence
+              choose karo jo abhi ke time ke baad SABSE JALDI (nearest future) aata hai — 12 ghante wala
+              bhi try karo aur agar wo beet chuka hai to agla wala (12 ghante baad) use karo. Example:
+              agar abhi 12:41 PM hai aur user "1 baje" bole, uska matlab most likely 13:00 (1 PM) hai,
+              kyunki 01:00 (1 AM) already beet chuka hai aaj. Sirf tab "subah" ko default maano jab
+              current time raat/bahut late ho (jaise current time khud hi raat 11-12 baje ke aas paas ho
+              aur is wajah se dono occurrence aage hi ho).
             - set_timer ke liye duration ko hamesha total seconds mein convert karo: "5 minute" = 300,
               "10 minute" = 600, "1 ghanta"/"1 hour" = 3600, "30 second" = 30.
             - volume_control/brightness_control mein agar user exact number bole ("volume 50 kar do",

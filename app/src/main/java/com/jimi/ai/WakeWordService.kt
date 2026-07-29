@@ -32,12 +32,9 @@ class WakeWordService : Service() {
         const val NOTIF_ID = 42
         private const val WATCHDOG_REQUEST_CODE = 99
 
-        // Simple substring-contains check — regex se zyada predictable, kisi Unicode
-        // edge-case mein chookne ka risk nahi. "जिम" substring khud "जिमी", "जिम्मी",
-        // "जिमि" sabke andar automatically aa jaata hai kyunki ye unka prefix hai.
         private val WAKE_WORD_FRAGMENTS = listOf(
-            "jim", "zim", "gimi", "gimmy",   // Roman spellings
-            "जिम", "जीम", "ज़िम", "ज़ीम"        // Devanagari — "जिमी"/"जिम्मी"/"जीमी" etc. sab inme cover ho jaate hain
+            "jim", "zim", "gimi", "gimmy",
+            "जिम", "जीम", "ज़िम", "ज़ीम"
         )
 
         private fun findWakeWordMatch(text: String): String? {
@@ -225,10 +222,19 @@ class WakeWordService : Service() {
         }
     }
 
+    /** Ab pichli 3 conversations ka summary bhi CommandRouter ko bhejta hai, taaki
+     * "aur badhao", "100% kardo" jaise follow-up commands ko context mile — pehle
+     * ye bina history ke jaate the, isliye follow-ups blind guess ban jaate the. */
     private fun runCommand(command: String) {
         scope.launch {
+            val recentHistory = try {
+                val db = JimiDatabase.getInstance(this@WakeWordService)
+                val past = db.conversationMemoryDao().getRecent(3)
+                past.reversed().joinToString("\n") { it.summary }
+            } catch (e: Exception) { "" }
+
             val reply = try {
-                CommandRouter(this@WakeWordService).handle(command)
+                CommandRouter(this@WakeWordService).handle(command, recentHistory)
             } catch (e: Exception) {
                 "Error: ${e.message}"
             }

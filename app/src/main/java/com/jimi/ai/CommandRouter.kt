@@ -3,6 +3,20 @@ package com.jimi.ai
 import android.content.Context
 import kotlinx.coroutines.delay
 
+/** Catches exact-number brightness/volume commands with a regex BEFORE they ever reach
+ * the Gemini API — faster (no network round-trip) and immune to the model guessing a
+ * wrong number when the user didn't actually say one. */
+object QuickCommandParser {
+    private val brightnessRegex = Regex("""(brightness|chamak)\D{0,12}?(\d{1,3})""", RegexOption.IGNORE_CASE)
+    private val volumeRegex = Regex("""(volume|awaaz|aawaz)\D{0,12}?(\d{1,3})""", RegexOption.IGNORE_CASE)
+
+    fun tryBrightness(command: String): Int? =
+        brightnessRegex.find(command)?.groupValues?.get(2)?.toIntOrNull()?.coerceIn(0, 100)
+
+    fun tryVolume(command: String): Int? =
+        volumeRegex.find(command)?.groupValues?.get(2)?.toIntOrNull()?.coerceIn(0, 100)
+}
+
 /**
  * The glue: takes a raw Hinglish/Hindi/English command from the user,
  * asks Claude to classify it, then dispatches to the right module.
@@ -14,6 +28,17 @@ class CommandRouter(private val context: Context) {
 
     /** Returns a human-readable status string to show in the chat UI. */
     suspend fun handle(command: String, recentHistory: String = ""): String {
+        // Fast-path: exact numeric brightness/volume commands skip Gemini entirely.
+        QuickCommandParser.tryBrightness(command)?.let { pct ->
+            val success = SystemControlHelper.adjustBrightness(context, percent = pct)
+            return if (success) "Brightness $pct% kar diya ☀️"
+            else "Brightness control ke liye permission chahiye — Settings me Jimi ko allow karo."
+        }
+        QuickCommandParser.tryVolume(command)?.let { pct ->
+            val success = SystemControlHelper.setVolumePercent(context, pct)
+            return if (success) "Volume $pct% kar diya 🔊" else "Volume control nahi ho paaya."
+        }
+
         val db = JimiDatabase.getInstance(context)
         val savedFacts = db.userFactDao().getAll()
         val savedMemoriesText = if (savedFacts.isNotEmpty()) {
@@ -73,10 +98,6 @@ class CommandRouter(private val context: Context) {
         }
     }
 
-    /** Jab Claude decide kare ki koi important fact yaad rakhna hai. Agar yahi fact same value
-     * ke saath pehle se saved hai, iska matlab ye asal mein ek QUESTION tha (jaise "kahan rehta hai"),
-     * naya fact nahi - is case mein hum "yaad rakh liya" spam nahi karte, balki jaankari se seedha
-     * natural jawab dete hain (general chat route se). */
     private suspend fun handleSaveMemory(decision: org.json.JSONObject, originalCommand: String, savedMemoriesText: String): String {
         val key = decision.optString("key")
         val value = decision.optString("value")
@@ -93,8 +114,6 @@ class CommandRouter(private val context: Context) {
         return "Yaad rakh liya: $key - $value ✅"
     }
 
-    /** General chat: purani conversations ka summary yaad karke reply deta hai,
-     * aur naye reply ka summary future ke liye save kar deta hai. */
     private suspend fun handleGeneralChat(command: String, savedMemoriesText: String): String {
         val db = JimiDatabase.getInstance(context)
         val pastMemories = db.conversationMemoryDao().getRecent(5)
@@ -145,10 +164,6 @@ class CommandRouter(private val context: Context) {
         return reply
     }
 
-    /** Persona ke hisaab se tone instruction. Jarvis = formal/concise, MYRA = warm/casual companion feel.
-     * Dono mein mood-aware acknowledgment bhi add hai - agar user ke message mein emotional cue ho
-     * (tired, bura din, khush, stressed, etc.), toh command execute karne se pehle usko thoda
-     * acknowledge kare, phir kaam kare. */
     private fun personaPrompt(): String {
         val moodNote = "Agar user ke message mein koi emotional cue ho (jaise 'tired hoon', 'bura din tha', " +
             "'khush hoon', 'stress ho raha hai'), toh seedha kaam pe mat kudo - pehle ek chhoti si " +
@@ -201,9 +216,6 @@ class CommandRouter(private val context: Context) {
         return "Playing: ${result.title} ▶️"
     }
 
-    /** Screen pe koi bhi button/text dhoondh kar tap karta hai. Ab retry-logic ke saath —
-     * pehli koshish mein hi na milne pe turant fail nahi hota, thoda wait karke kai baar
-     * try karta hai (kai screens load hone mein thoda time leti hain, especially slow devices pe). */
     private suspend fun handleTapScreen(decision: org.json.JSONObject): String {
         val targetText = decision.optString("target_text")
         if (targetText.isBlank()) return "Kaunsa button dabana hai, thoda clear batao?"

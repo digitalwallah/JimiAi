@@ -3,6 +3,9 @@ package com.jimi.ai
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -22,6 +25,8 @@ class WakeWordService : Service() {
     private var recognizer: SpeechRecognizer? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var speechHelper: SpeechHelper
+    private lateinit var audioManager: AudioManager
+    private var focusRequest: AudioFocusRequest? = null
     private val handler = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -33,8 +38,8 @@ class WakeWordService : Service() {
         private const val WATCHDOG_REQUEST_CODE = 99
 
         private val WAKE_WORD_FRAGMENTS = listOf(
-            "jim", "zim", "gimi", "gimmy",
-            "जिम", "जीम", "ज़िम", "ज़ीम"
+            "jim", "zim", "gimi", "gimmy", "suno",
+            "जिम", "जीम", "ज़िम", "ज़ीम", "सुनो"
         )
 
         private fun findWakeWordMatch(text: String): String? {
@@ -87,6 +92,7 @@ class WakeWordService : Service() {
     override fun onCreate() {
         super.onCreate()
         speechHelper = SpeechHelper(this)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification("Jimi sun raha hai... 👂"))
         setupRecognizer()
@@ -100,6 +106,7 @@ class WakeWordService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        abandonListeningFocus()
         recognizer?.destroy()
         wakeLock?.let { if (it.isHeld) it.release() }
         speechHelper.shutdown()
@@ -143,6 +150,40 @@ class WakeWordService : Service() {
         manager.notify(NOTIF_ID, buildNotification(text))
     }
 
+    private fun requestListeningFocus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(attrs)
+                    .setWillPauseWhenDucked(false)
+                    .build()
+                focusRequest = request
+                audioManager.requestAudioFocus(request)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+                )
+            }
+        } catch (e: Exception) { }
+    }
+
+    private fun abandonListeningFocus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+                focusRequest = null
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.abandonAudioFocus(null)
+            }
+        } catch (e: Exception) { }
+    }
+
     private fun setupRecognizer() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             updateNotification("Is device pe speech recognition available nahi hai ❌")
@@ -151,6 +192,7 @@ class WakeWordService : Service() {
         recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(object : RecognitionListener {
                 override fun onResults(results: Bundle?) {
+                    abandonListeningFocus()
                     val text = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()?.lowercase() ?: ""
@@ -158,6 +200,7 @@ class WakeWordService : Service() {
                     restartSoon(quick = true)
                 }
                 override fun onError(error: Int) {
+                    abandonListeningFocus()
                     val isSilenceError = error == SpeechRecognizer.ERROR_NO_MATCH ||
                         error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
                     if (!isSilenceError) {
@@ -179,6 +222,7 @@ class WakeWordService : Service() {
     private fun startListeningCycle() {
         val rec = recognizer ?: return
         try {
+            requestListeningFocus()
             rec.startListening(
                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -187,12 +231,19 @@ class WakeWordService : Service() {
                 }
             )
         } catch (e: Exception) {
+            abandonListeningFocus()
             handler.postDelayed({ setupRecognizer(); startListeningCycle() }, 800)
         }
     }
 
     private fun restartSoon(quick: Boolean) {
-        handler.postDelayed({ startListeningCycle() }, if (quick) 400 else 1200)
+        val mediaPlaying = try { audioManager.isMusicActive } catch (e: Exception) { false }
+        val delayMs = when {
+            mediaPlaying -> 3000L
+            quick -> 400L
+            else -> 1200L
+        }
+        handler.postDelayed({ startListeningCycle() }, delayMs)
     }
 
     private fun onHeard(text: String) {
@@ -222,9 +273,6 @@ class WakeWordService : Service() {
         }
     }
 
-    /** Ab pichli 3 conversations ka summary bhi CommandRouter ko bhejta hai, taaki
-     * "aur badhao", "100% kardo" jaise follow-up commands ko context mile — pehle
-     * ye bina history ke jaate the, isliye follow-ups blind guess ban jaate the. */
     private fun runCommand(command: String) {
         scope.launch {
             val recentHistory = try {

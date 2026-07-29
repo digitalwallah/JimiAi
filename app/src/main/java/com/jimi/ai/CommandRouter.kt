@@ -3,9 +3,6 @@ package com.jimi.ai
 import android.content.Context
 import kotlinx.coroutines.delay
 
-/** Catches exact-number brightness/volume commands with a regex BEFORE they ever reach
- * the Gemini API — faster (no network round-trip) and immune to the model guessing a
- * wrong number when the user didn't actually say one. */
 object QuickCommandParser {
     private val brightnessRegex = Regex("""(brightness|chamak)\D{0,12}?(\d{1,3})""", RegexOption.IGNORE_CASE)
     private val volumeRegex = Regex("""(volume|awaaz|aawaz)\D{0,12}?(\d{1,3})""", RegexOption.IGNORE_CASE)
@@ -17,16 +14,47 @@ object QuickCommandParser {
         volumeRegex.find(command)?.groupValues?.get(2)?.toIntOrNull()?.coerceIn(0, 100)
 }
 
-/**
- * The glue: takes a raw Hinglish/Hindi/English command from the user,
- * asks Claude to classify it, then dispatches to the right module.
- */
+private fun normalizeDirection(raw: String): String {
+    val d = raw.trim().lowercase()
+    return when {
+        d.isBlank() -> d
+        d in listOf("up", "increase", "increased", "raise", "raised", "badhao", "badhado", "badha do", "badha", "zyada", "zyada karo", "tez", "high", "louder", "loud", "more") -> "up"
+        d in listOf("down", "decrease", "decreased", "lower", "lowered", "kam", "kam karo", "km", "halka", "halka karo", "dheem", "quiet", "quieter", "low", "less") -> "down"
+        d in listOf("set", "exact", "specific", "particular") -> "set"
+        d in listOf("mute", "silent", "band", "band karo", "off") -> "mute"
+        d in listOf("unmute", "on", "chalu", "chalu karo") -> "unmute"
+        d in listOf("max", "full", "maximum", "poora", "pura", "full karo") -> "max"
+        else -> d
+    }
+}
+
+private fun normalizeLockState(raw: String): String {
+    val s = raw.trim().lowercase()
+    return when {
+        s in listOf("on", "lock", "locked", "lock karo", "band", "band karo") -> "on"
+        s in listOf("off", "unlock", "unlocked", "unlock karo", "chalu", "auto", "auto rotate", "auto-rotate") -> "off"
+        else -> s
+    }
+}
+
+private fun normalizeMediaCommand(raw: String): String {
+    val c = raw.trim().lowercase()
+    return when {
+        c in listOf("play", "resume", "chalao", "chalu karo", "start") -> "play"
+        c in listOf("pause", "ruko", "rok do", "rok") -> "pause"
+        c in listOf("play_pause", "toggle", "play/pause") -> "play_pause"
+        c in listOf("next", "skip", "aage") -> "next"
+        c in listOf("previous", "prev", "peeche", "back") -> "previous"
+        c in listOf("stop", "band karo", "band") -> "stop"
+        else -> c
+    }
+}
+
 class CommandRouter(private val context: Context) {
 
     private val claude = ClaudeApiClient(SettingsStore.getClaudeKey(context))
     private val youtube = YouTubeHelper(SettingsStore.getYoutubeKey(context))
 
-    /** Returns a human-readable status string to show in the chat UI. */
     suspend fun handle(command: String, recentHistory: String = ""): String {
         QuickCommandParser.tryBrightness(command)?.let { pct ->
             val success = SystemControlHelper.adjustBrightness(context, percent = pct)
@@ -158,7 +186,7 @@ class CommandRouter(private val context: Context) {
                 ConversationMemory(summary = "User: $command | Jimi: ${reply.take(100)}")
             )
             db.conversationMemoryDao().trimOldEntries()
-        } catch (e: Exception) { /* memory save fail ho jaaye toh bhi reply block nahi hona chahiye */ }
+        } catch (e: Exception) { }
 
         return reply
     }
@@ -263,7 +291,7 @@ class CommandRouter(private val context: Context) {
     }
 
     private fun handleVolumeControl(decision: org.json.JSONObject): String {
-        val direction = decision.optString("direction").lowercase()
+        val direction = normalizeDirection(decision.optString("direction"))
         val percent = decision.optInt("percent", -1)
 
         val success = if (direction == "set" && percent in 0..100) {
@@ -291,7 +319,7 @@ class CommandRouter(private val context: Context) {
             return "Brightness control ke liye ek special permission chahiye — jo screen khuli hai usme Jimi ko allow kar do, phir dobara try karna."
         }
 
-        val direction = decision.optString("direction").lowercase()
+        val direction = normalizeDirection(decision.optString("direction"))
         val percent = decision.optInt("percent", -1)
 
         val success = if (direction == "set" && percent in 0..100) {
@@ -316,7 +344,7 @@ class CommandRouter(private val context: Context) {
             return "Rotation control ke liye ek special permission chahiye — jo screen khuli hai usme Jimi ko allow kar do, phir dobara try karna."
         }
 
-        val state = decision.optString("state").lowercase()
+        val state = normalizeLockState(decision.optString("state"))
         val locked = state == "on"
         val success = SystemControlHelper.setRotationLock(context, locked)
 
@@ -326,7 +354,7 @@ class CommandRouter(private val context: Context) {
     }
 
     private fun handleMediaControl(decision: org.json.JSONObject): String {
-        val command = decision.optString("command").lowercase()
+        val command = normalizeMediaCommand(decision.optString("command"))
         val success = SystemControlHelper.controlMedia(context, command)
 
         return if (success) {
@@ -342,11 +370,6 @@ class CommandRouter(private val context: Context) {
         } else "Media control nahi ho paaya — koi player active nahi hai shayad."
     }
 
-    /** Alarm set karta hai. Ab error ka exact reason bhi chat me dikhata hai
-     * (SystemControlHelper.lastAlarmError se), taaki root cause pata chal sake
-     * instead of generic "nahi ho paaya" bolne ke. Agar clock app apna khud ka
-     * confirm-screen dikhaye, Accessibility Service se "Save"/"Done"/"OK" tap
-     * karne ki koshish bhi karta hai. */
     private suspend fun handleSetAlarm(decision: org.json.JSONObject): String {
         val hour = decision.optInt("hour", -1)
         val minute = decision.optInt("minute", 0)
@@ -362,16 +385,23 @@ class CommandRouter(private val context: Context) {
             else "Alarm set nahi ho paaya."
         }
 
-        delay(700)
         val service = JimiAccessibilityService.instance
         if (service != null) {
-            val confirmLabels = listOf("Save", "Done", "OK", "Ok", "सहेजें", "ठीक है", "Set")
-            for (label2 in confirmLabels) {
-                val node = service.findNodeByText(label2)
-                if (node != null) {
-                    service.clickNode(node)
-                    break
+            val confirmLabels = listOf("Save", "Done", "OK", "Ok", "सहेजें", "ठीक है", "Set", "Confirm", "Add", "Tick")
+            var tapped = false
+            val maxAttempts = 5
+            repeat(maxAttempts) { attempt ->
+                if (!tapped) {
+                    for (label2 in confirmLabels) {
+                        val node = service.findNodeByText(label2)
+                        if (node != null) {
+                            service.clickNode(node)
+                            tapped = true
+                            break
+                        }
+                    }
                 }
+                if (!tapped && attempt < maxAttempts - 1) delay(500)
             }
         }
 

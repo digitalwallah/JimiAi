@@ -28,7 +28,6 @@ class CommandRouter(private val context: Context) {
 
     /** Returns a human-readable status string to show in the chat UI. */
     suspend fun handle(command: String, recentHistory: String = ""): String {
-        // Fast-path: exact numeric brightness/volume commands skip Gemini entirely.
         QuickCommandParser.tryBrightness(command)?.let { pct ->
             val success = SystemControlHelper.adjustBrightness(context, percent = pct)
             return if (success) "Brightness $pct% kar diya ☀️"
@@ -343,10 +342,11 @@ class CommandRouter(private val context: Context) {
         } else "Media control nahi ho paaya — koi player active nahi hai shayad."
     }
 
-    /** Alarm set karta hai. Kuch clock apps EXTRA_SKIP_UI ignore karke apna khud ka
-     * confirm-screen dikha dete hain — agar aisa ho, Accessibility Service se hum
-     * khud "Save"/"Done"/"OK"/checkmark button dhoondh kar tap kar dete hain,
-     * bina kisi specific app-naam ya phrase janne ki zaroorat ke. */
+    /** Alarm set karta hai. Ab error ka exact reason bhi chat me dikhata hai
+     * (SystemControlHelper.lastAlarmError se), taaki root cause pata chal sake
+     * instead of generic "nahi ho paaya" bolne ke. Agar clock app apna khud ka
+     * confirm-screen dikhaye, Accessibility Service se "Save"/"Done"/"OK" tap
+     * karne ki koshish bhi karta hai. */
     private suspend fun handleSetAlarm(decision: org.json.JSONObject): String {
         val hour = decision.optInt("hour", -1)
         val minute = decision.optInt("minute", 0)
@@ -356,7 +356,11 @@ class CommandRouter(private val context: Context) {
         val success = SystemControlHelper.setAlarm(context, hour, minute, label)
         val timeStr = String.format("%02d:%02d", hour, minute)
 
-        if (!success) return "Alarm set nahi ho paaya."
+        if (!success) {
+            val errorDetail = SystemControlHelper.lastAlarmError
+            return if (errorDetail != null) "Alarm set nahi ho paaya — error: $errorDetail"
+            else "Alarm set nahi ho paaya."
+        }
 
         delay(700)
         val service = JimiAccessibilityService.instance

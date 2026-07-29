@@ -11,16 +11,10 @@ import android.provider.AlarmClock
 import android.provider.Settings
 import android.view.KeyEvent
 
-/** Direct system-level controls jo Accessibility ya app-launch se nahi ho sakte,
- * jaise flashlight, volume, brightness, media keys — inhe seedha Android ke
- * hardware/system APIs se control karna padta hai. Ye sab deterministic direct-API
- * calls hain (koi UI-guessing/automation nahi), isliye reliably 100% consistent hain —
- * fail hone ka matlab hamesha permission missing hona hai, kabhi "button nahi mila" nahi. */
 object SystemControlHelper {
 
     private var isFlashOn = false
 
-    /** Flashlight on/off karta hai. turnOn = true (on) ya false (off). */
     fun setFlashlight(context: Context, turnOn: Boolean?): Boolean {
         return try {
             val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -40,7 +34,6 @@ object SystemControlHelper {
 
     // ---------- VOLUME ----------
 
-    /** direction: "up", "down", "mute", "max". Koi permission nahi chahiye — turant kaam karta hai. */
     fun adjustVolume(context: Context, direction: String): Boolean {
         return try {
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -61,7 +54,6 @@ object SystemControlHelper {
         }
     }
 
-    /** Volume ko seedha ek percentage (0-100) pe set karta hai — "volume 50% kar do" jaise commands ke liye. */
     fun setVolumePercent(context: Context, percent: Int): Boolean {
         return try {
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -76,12 +68,8 @@ object SystemControlHelper {
 
     // ---------- BRIGHTNESS ----------
 
-    /** Brightness control ke liye WRITE_SETTINGS chahiye — ye normal runtime-permission nahi hai,
-     * user ko ek special Settings screen se ek-baar allow karna padta hai. Ye check karta hai
-     * ki permission already hai ya nahi. */
     fun canWriteSettings(context: Context): Boolean = Settings.System.canWrite(context)
 
-    /** Agar canWriteSettings() false ho, ye us special allow-screen ko seedha khol deta hai. */
     fun requestWriteSettingsPermission(context: Context) {
         val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
             data = Uri.parse("package:${context.packageName}")
@@ -90,14 +78,16 @@ object SystemControlHelper {
         context.startActivity(intent)
     }
 
-    /** direction: "up", "down", ya null (tab percent use hoga). percent 0-100 ho to seedha wahi set hoga. */
+    /** direction: "up", "down", ya null (tab percent use hoga). percent 0-100 ho to seedha wahi set hoga.
+     * NOTE: percent path ab 4% pe floor karta hai (255 scale pe ~10) — ye kabhi bhi screen ko
+     * literally 0/unreadable-black nahi hone deta, chahe model kahin se galat 0 bhej de. */
     fun adjustBrightness(context: Context, direction: String? = null, percent: Int? = null): Boolean {
         if (!canWriteSettings(context)) return false
         return try {
             val resolver = context.contentResolver
             val current = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 128)
             val newValue = when {
-                percent != null -> (255 * percent.coerceIn(0, 100) / 100.0).toInt()
+                percent != null -> (255 * percent.coerceIn(4, 100) / 100.0).toInt()
                 direction == "up" -> (current + 51).coerceAtMost(255)
                 direction == "down" -> (current - 51).coerceAtLeast(10)
                 else -> current
@@ -128,9 +118,6 @@ object SystemControlHelper {
 
     // ---------- MEDIA CONTROL ----------
 
-    /** action: "play", "pause", "play_pause", "next", "previous". Ye system-wide media-button
-     * event bhejta hai — jo bhi player currently active hai (Spotify, YouTube, YouTube Music,
-     * koi bhi) usi ko control karta hai, kisi specific app se bandha nahi hai. */
     fun controlMedia(context: Context, action: String): Boolean {
         val keyCode = when (action.lowercase()) {
             "play" -> KeyEvent.KEYCODE_MEDIA_PLAY
@@ -153,8 +140,6 @@ object SystemControlHelper {
 
     // ---------- ALARM ----------
 
-    /** Koi bhi installed clock-app khol ke us mein alarm set kar deta hai — deterministic
-     * hai kyunki ye Android ka standard ACTION_SET_ALARM intent hai, koi UI-guessing nahi. */
     fun setAlarm(context: Context, hour: Int, minute: Int, message: String = "Jimi Alarm"): Boolean {
         return try {
             val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {

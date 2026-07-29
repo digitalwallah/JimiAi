@@ -343,16 +343,35 @@ class CommandRouter(private val context: Context) {
         } else "Media control nahi ho paaya — koi player active nahi hai shayad."
     }
 
-    private fun handleSetAlarm(decision: org.json.JSONObject): String {
+    /** Alarm set karta hai. Kuch clock apps EXTRA_SKIP_UI ignore karke apna khud ka
+     * confirm-screen dikha dete hain — agar aisa ho, Accessibility Service se hum
+     * khud "Save"/"Done"/"OK"/checkmark button dhoondh kar tap kar dete hain,
+     * bina kisi specific app-naam ya phrase janne ki zaroorat ke. */
+    private suspend fun handleSetAlarm(decision: org.json.JSONObject): String {
         val hour = decision.optInt("hour", -1)
         val minute = decision.optInt("minute", 0)
         if (hour !in 0..23) return "Kitne baje alarm lagana hai, thoda clear batao?"
 
         val label = decision.optString("label").ifBlank { "Jimi Alarm" }
         val success = SystemControlHelper.setAlarm(context, hour, minute, label)
-
         val timeStr = String.format("%02d:%02d", hour, minute)
-        return if (success) "$timeStr ka alarm laga diya ⏰" else "Alarm set nahi ho paaya."
+
+        if (!success) return "Alarm set nahi ho paaya."
+
+        delay(700)
+        val service = JimiAccessibilityService.instance
+        if (service != null) {
+            val confirmLabels = listOf("Save", "Done", "OK", "Ok", "सहेजें", "ठीक है", "Set")
+            for (label2 in confirmLabels) {
+                val node = service.findNodeByText(label2)
+                if (node != null) {
+                    service.clickNode(node)
+                    break
+                }
+            }
+        }
+
+        return "$timeStr ka alarm laga diya ⏰"
     }
 
     private fun handleSetTimer(decision: org.json.JSONObject): String {

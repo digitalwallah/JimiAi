@@ -102,15 +102,24 @@ object SystemControlHelper {
 
     // ---------- ROTATION LOCK ----------
 
+    /** Ab write ke baad value ko wapas padh kar verify karta hai — kuch OEM (MIUI/ColorOS/etc.)
+     * canWriteSettings() true return karte hain lekin actual write silently ignore kar dete hain.
+     * Ab agar write stick nahi hui, ye honestly false return karega instead of false-success bolna. */
     fun setRotationLock(context: Context, locked: Boolean): Boolean {
         if (!canWriteSettings(context)) return false
         return try {
+            val target = if (locked) 0 else 1
             Settings.System.putInt(
                 context.contentResolver,
                 Settings.System.ACCELEROMETER_ROTATION,
-                if (locked) 0 else 1
+                target
             )
-            true
+            val actual = Settings.System.getInt(
+                context.contentResolver,
+                Settings.System.ACCELEROMETER_ROTATION,
+                -1
+            )
+            actual == target
         } catch (e: Exception) {
             false
         }

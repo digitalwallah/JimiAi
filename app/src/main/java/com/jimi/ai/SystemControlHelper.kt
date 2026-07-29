@@ -78,9 +78,6 @@ object SystemControlHelper {
         context.startActivity(intent)
     }
 
-    /** direction: "up", "down", ya null (tab percent use hoga). percent 0-100 ho to seedha wahi set hoga.
-     * NOTE: percent path ab 4% pe floor karta hai (255 scale pe ~10) — ye kabhi bhi screen ko
-     * literally 0/unreadable-black nahi hone deta, chahe model kahin se galat 0 bhej de. */
     fun adjustBrightness(context: Context, direction: String? = null, percent: Int? = null): Boolean {
         if (!canWriteSettings(context)) return false
         return try {
@@ -102,9 +99,6 @@ object SystemControlHelper {
 
     // ---------- ROTATION LOCK ----------
 
-    /** Ab write ke baad value ko wapas padh kar verify karta hai — kuch OEM (MIUI/ColorOS/etc.)
-     * canWriteSettings() true return karte hain lekin actual write silently ignore kar dete hain.
-     * Ab agar write stick nahi hui, ye honestly false return karega instead of false-success bolna. */
     fun setRotationLock(context: Context, locked: Boolean): Boolean {
         if (!canWriteSettings(context)) return false
         return try {
@@ -149,6 +143,12 @@ object SystemControlHelper {
 
     // ---------- ALARM ----------
 
+    /** Ab exception ka exact message bhi expose karta hai (lastAlarmError se) —
+     * pehle catch block silently swallow kar raha tha, isliye pata hi nahi chalta
+     * tha startActivity() kis wajah se fail ho raha hai. */
+    var lastAlarmError: String? = null
+        private set
+
     fun setAlarm(context: Context, hour: Int, minute: Int, message: String = "Jimi Alarm"): Boolean {
         return try {
             val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
@@ -159,8 +159,10 @@ object SystemControlHelper {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(intent)
+            lastAlarmError = null
             true
         } catch (e: Exception) {
+            lastAlarmError = "${e.javaClass.simpleName}: ${e.message}"
             false
         }
     }

@@ -108,6 +108,8 @@ class ClaudeApiClient(private val apiKey: String) {
               "brightness 80% kar do"), toh direction="set" aur percent us number ko do. Agar sirf
               "badhao"/"kam karo"/"tez karo"/"dheema karo" bole bina number ke, toh direction="up"/"down"
               aur percent=-1.
+            - Agar user ne koi exact number NAHI bola hai, toh percent HAMESHA -1 rakho aur direction
+              'up'/'down' use karo — kabhi bhi apni marzi se koi number guess karke 'set' mat use karo.
 
             - SAVE_MEMORY vs CHAT_REPLY (bahut zaroori, isme galti mat karna):
               save_memory SIRF tab use karo jab user KHUD apni marzi se ek NAYA FACT/STATEMENT bata raha
@@ -142,13 +144,10 @@ class ClaudeApiClient(private val apiKey: String) {
             val cleaned = extractJson(raw)
             JSONObject(cleaned)
         } catch (e: Exception) {
-            // Parsing fail hui — command execute karne ke bajaye safe fallback: general chat
             JSONObject().apply { put("action", "chat_reply") }
         }
     }
 
-    /** Model ke response se sirf JSON part nikaalta hai, chahe aage-peeche
-     * koi extra text/markdown ho — pehle '{' se lekar last '}' tak. */
     private fun extractJson(raw: String): String {
         var cleaned = raw.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
         val start = cleaned.indexOf('{')

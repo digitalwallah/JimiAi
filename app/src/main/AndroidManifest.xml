@@ -45,6 +45,11 @@
          wo screen seedha khol deta hai) -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
+    <!-- NAYA: kuch OEM clock apps (jaise deskclock/.HandleSetAlarmApiCalls) ACTION_SET_ALARM ko
+         strictly is permission ke bina block kar dete hain (SecurityException: Permission Denial).
+         Ye ek normal, install-time permission hai — koi runtime dialog nahi maangega. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

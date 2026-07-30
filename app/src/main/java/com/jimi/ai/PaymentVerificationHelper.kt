@@ -8,20 +8,18 @@ object PaymentVerificationHelper {
 
     private val db = FirebaseFirestore.getInstance()
     private const val COLLECTION = "payment_requests"
+    private const val TRIAL_COLLECTION = "trial_usage"
 
     data class PaymentRequest(
         val phone: String = "",
         val utr: String = "",
-        val plan: String = "",       // "1_month" or "4_month"
+        val plan: String = "",
         val amount: Int = 0,
-        val status: String = "pending", // pending / approved / rejected
+        val status: String = "pending",
         val timestamp: Long = System.currentTimeMillis(),
         val expiryTimestamp: Long = 0L
     )
 
-    /**
-     * Submits a payment request to Firestore after user enters UTR + phone.
-     */
     fun submitPaymentRequest(
         phone: String,
         utr: String,
@@ -49,12 +47,6 @@ object PaymentVerificationHelper {
             }
     }
 
-    /**
-     * Real-time listener — fires instantly when you mark status "approved"
-     * in the Firebase console. No polling needed.
-     * Call this after submitPaymentRequest and keep the ListenerRegistration
-     * to remove it in onDestroy().
-     */
     fun listenForApproval(
         docId: String,
         onApproved: (PaymentRequest) -> Unit,
@@ -75,10 +67,6 @@ object PaymentVerificationHelper {
             }
     }
 
-    /**
-     * Optional: check by phone number in case app restarted before approval
-     * came in (e.g. user closed app, reopens later).
-     */
     fun checkPendingRequestByPhone(
         phone: String,
         onFound: (docId: String, request: PaymentRequest) -> Unit,
@@ -99,5 +87,37 @@ object PaymentVerificationHelper {
                 }
             }
             .addOnFailureListener { onNotFound() }
+    }
+
+    /** Trial ke liye eligibility check — phone number AUR device ID dono ke against
+     * dekhta hai. Agar dono mein se koi bhi ek pehle trial use kar chuka hai, trial
+     * dobara nahi milega — chahe naya number ho ya naya device. */
+    fun checkTrialEligibility(
+        phone: String,
+        deviceId: String,
+        onEligible: () -> Unit,
+        onAlreadyUsed: () -> Unit
+    ) {
+        db.collection(TRIAL_COLLECTION).document(deviceId).get()
+            .addOnSuccessListener { deviceDoc ->
+                if (deviceDoc.exists()) {
+                    onAlreadyUsed()
+                } else {
+                    db.collection(TRIAL_COLLECTION).document(phone).get()
+                        .addOnSuccessListener { phoneDoc ->
+                            if (phoneDoc.exists()) onAlreadyUsed() else onEligible()
+                        }
+                        .addOnFailureListener { onEligible() }
+                }
+            }
+            .addOnFailureListener { onEligible() }
+    }
+
+    /** Trial approve hone ke baad, dono (phone + deviceId) ko "used" mark kar deta hai
+     * taaki dobara koi bhi ek use karke trial na le sake. */
+    fun markTrialUsed(phone: String, deviceId: String) {
+        val data = mapOf("usedAt" to System.currentTimeMillis())
+        db.collection(TRIAL_COLLECTION).document(deviceId).set(data)
+        db.collection(TRIAL_COLLECTION).document(phone).set(data)
     }
 }

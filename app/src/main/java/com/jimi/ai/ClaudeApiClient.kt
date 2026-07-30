@@ -91,6 +91,7 @@ class ClaudeApiClient(private val apiKey: String) {
             16. save_note -> {"action":"save_note","content":"<jo bhi user ne note karne ko bola, uska exact content>"}
             17. notes_summary -> {"action":"notes_summary"}
             18. generate_notes_pdf -> {"action":"generate_notes_pdf"}
+            19. typing_help -> {"action":"typing_help","mode":"<'suggest' agar user sirf salah maang raha hai jaise 'yaha kya likhu', 'kya reply karu'; 'type' agar user ne exact message dictate kiya hai jaise 'ye likh do: ...', 'type kardo ki ...'>","instruction":"<user ka poora request/context - jo bhi bola hai>"}
 
             Important rules:
             - Contact naam aur app naam (whatsapp_send, make_call, open_app ke andar) HAMESHA Roman/English
@@ -122,6 +123,11 @@ class ClaudeApiClient(private val apiKey: String) {
               (jaise "mere notes ka summary do", "kya kya note kiya hai batao").
               generate_notes_pdf tab use karo jab user PDF banane/download/share karne ko bole
               (jaise "notes ka PDF banao", "PDF bhejo", "notes download karo").
+            - typing_help tabhi use karo jab user kisi doosre app (WhatsApp, Instagram, etc.) mein
+              screen pe dikh rahe kisi text-field mein kya likhna hai iske baare mein pooche ya bole,
+              jaise "yaha kya likhu", "isko reply me kya bolu", "ye type kar do [message]". explain_screen
+              se alag hai - explain_screen kisi cheez ko samjhane/translate karne ke liye hai, typing_help
+              naya text likhne/suggest karne ke liye hai.
 
             - SAVE_MEMORY vs CHAT_REPLY (bahut zaroori, isme galti mat karna):
               save_memory SIRF tab use karo jab user KHUD apni marzi se ek NAYA FACT/STATEMENT bata raha
@@ -151,6 +157,8 @@ class ClaudeApiClient(private val apiKey: String) {
               - "note kar lo kal doctor jaana hai" -> save_note
               - "mere notes ka summary do" -> notes_summary
               - "notes ka pdf bana do" -> generate_notes_pdf
+              - "yaha kya likhu" -> typing_help (mode="suggest")
+              - "ise reply me bol do main busy hoon" -> typing_help (mode="type", instruction="main busy hoon")
 
             $memorySection$historySection
             Sirf raw JSON return karo.

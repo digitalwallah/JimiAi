@@ -3,69 +3,241 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#0B1220"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
-        android:gravity="center_horizontal">
+        android:padding="20dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Jimi Premium Subscription"
-            android:textSize="22sp"
+            android:layout_gravity="center_horizontal"
+            android:text="⭐ Jimi Premium"
+            android:textSize="24sp"
             android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="8dp" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="Sabhi features unlock karo"
+            android:textSize="14sp"
+            android:textColor="#8A94A6"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- ===== PLAN CARD: 7-Day Trial ===== -->
         <LinearLayout
+            android:id="@+id/cardTrial"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:background="@drawable/bg_plan_card_unselected"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical">
 
-            <Button
-                android:id="@+id/btnOneMonth"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:text="1 Month - ₹99" />
+                android:orientation="vertical">
 
-            <Button
-                android:id="@+id/btnFourMonth"
-                android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="7-Day Trial"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="  NEW USERS"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:textColor="#0B1220"
+                        android:background="@drawable/bg_badge"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sabhi premium features try karo"
+                    android:textSize="12sp"
+                    android:textColor="#8A94A6"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:text="4 Months - ₹299" />
-
+                android:text="₹5"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#22D3EE" />
         </LinearLayout>
 
-        <ImageView
-            android:id="@+id/qrImageView"
-            android:layout_width="260dp"
-            android:layout_height="260dp"
+        <!-- ===== PLAN CARD: 1 Month ===== -->
+        <LinearLayout
+            android:id="@+id/cardOneMonth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_plan_card_selected"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1 Month"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Monthly billing"
+                    android:textSize="12sp"
+                    android:textColor="#8A94A6"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹69"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#22D3EE" />
+        </LinearLayout>
+
+        <!-- ===== PLAN CARD: 4 Months ===== -->
+        <LinearLayout
+            android:id="@+id/cardFourMonth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_plan_card_unselected"
+            android:padding="16dp"
             android:layout_marginBottom="24dp"
-            android:background="#FFFFFF"
-            android:contentDescription="Payment QR Code" />
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="4 Months"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="  BEST VALUE"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:textColor="#0B1220"
+                        android:background="@drawable/bg_badge"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="₹57/month ke barabar"
+                    android:textSize="12sp"
+                    android:textColor="#8A94A6"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹229"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#22D3EE" />
+        </LinearLayout>
+
+        <!-- ===== QR CODE ===== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:background="@drawable/bg_qr_container"
+            android:padding="20dp"
+            android:layout_marginBottom="20dp">
+
+            <ImageView
+                android:id="@+id/qrImageView"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:contentDescription="Payment QR Code" />
+        </LinearLayout>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="QR scan karke payment karo, phir neeche UTR/Transaction ID aur apna phone number daal ke submit karo."
-            android:textSize="14sp"
+            android:textSize="13sp"
+            android:textColor="#8A94A6"
             android:gravity="center"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="20dp" />
 
         <EditText
             android:id="@+id/etUtr"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="UTR / Transaction ID"
+            android:textColorHint="#5A6478"
+            android:textColor="#FFFFFF"
             android:inputType="text"
+            android:background="@drawable/bg_input_field"
             android:layout_marginBottom="12dp" />
 
         <EditText
@@ -73,14 +245,21 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Phone Number"
+            android:textColorHint="#5A6478"
+            android:textColor="#FFFFFF"
             android:inputType="phone"
+            android:background="@drawable/bg_input_field"
             android:layout_marginBottom="20dp" />
 
         <Button
             android:id="@+id/btnSubmit"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Submit Payment" />
+            android:layout_height="52dp"
+            android:text="Submit Payment"
+            android:textColor="#0B1220"
+            android:textStyle="bold"
+            android:background="@drawable/bg_button_primary"
+            android:elevation="0dp" />
 
         <TextView
             android:id="@+id/tvStatus"
@@ -88,7 +267,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:gravity="center"
-            android:textSize="14sp" />
+            android:textSize="13sp"
+            android:textColor="#8A94A6" />
 
     </LinearLayout>
 

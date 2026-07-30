@@ -111,6 +111,17 @@
         <receiver
             android:name=".WakeWordWatchdogReceiver"
             android:exported="false" />
+        <!-- PDF file share/download karne ke liye — FileProvider ke bina Android 7+ pe
+             file-sharing intent SecurityException ke saath crash karta hai -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 </manifest>

@@ -88,6 +88,9 @@ class ClaudeApiClient(private val apiKey: String) {
             13. set_alarm -> {"action":"set_alarm","hour":<0-23, 24-hour format>,"minute":<0-59>,"label":"<agar koi naam/reason bola ho, warna khaali>"}
             14. set_timer -> {"action":"set_timer","seconds":<total seconds mein duration>,"label":"<agar koi naam bola ho, warna khaali>"}
             15. explain_screen -> {"action":"explain_screen","instruction":"<user ne exactly kya poocha/bola hai - jaise 'iska matlab batao', 'ise English mein translate karo', 'ye calculate karo', 'ye samjhao'>"}
+            16. save_note -> {"action":"save_note","content":"<jo bhi user ne note karne ko bola, uska exact content>"}
+            17. notes_summary -> {"action":"notes_summary"}
+            18. generate_notes_pdf -> {"action":"generate_notes_pdf"}
 
             Important rules:
             - Contact naam aur app naam (whatsapp_send, make_call, open_app ke andar) HAMESHA Roman/English
@@ -113,6 +116,12 @@ class ClaudeApiClient(private val apiKey: String) {
               mein pooche — jaise "iska matlab kya hai", "ye kya likha hai", "translate karo", "ye
               calculate karo", "ye samjhao". Agar sawaal general knowledge ka hai (screen se related
               nahi), toh chat_reply use karo.
+            - save_note tabhi use karo jab user explicitly bole "note karo", "ye likh lo", "yaad rakhne
+              ke liye note bana do" — content field mein user ka poora point verbatim daalo.
+              notes_summary tab use karo jab user apne saare saved notes ka summary/overview maange
+              (jaise "mere notes ka summary do", "kya kya note kiya hai batao").
+              generate_notes_pdf tab use karo jab user PDF banane/download/share karne ko bole
+              (jaise "notes ka PDF banao", "PDF bhejo", "notes download karo").
 
             - SAVE_MEMORY vs CHAT_REPLY (bahut zaroori, isme galti mat karna):
               save_memory SIRF tab use karo jab user KHUD apni marzi se ek NAYA FACT/STATEMENT bata raha
@@ -139,6 +148,9 @@ class ClaudeApiClient(private val apiKey: String) {
               - "screen ghumne mat do" -> rotation_lock (state="on")
               - "iska matlab kya hai" -> explain_screen
               - "ye English mein translate kardo" -> explain_screen
+              - "note kar lo kal doctor jaana hai" -> save_note
+              - "mere notes ka summary do" -> notes_summary
+              - "notes ka pdf bana do" -> generate_notes_pdf
 
             $memorySection$historySection
             Sirf raw JSON return karo.

@@ -11,12 +11,14 @@ object LicenseActivator {
     private const val KEY_EXPIRY = "premium_expiry_timestamp"
     private const val KEY_PLAN = "active_plan"
 
+    private const val SEVEN_DAY_MILLIS = 7L * 24 * 60 * 60 * 1000
     private const val ONE_MONTH_MILLIS = 30L * 24 * 60 * 60 * 1000
     private const val FOUR_MONTH_MILLIS = 120L * 24 * 60 * 60 * 1000
 
     fun activatePremium(context: Context, plan: String) {
         val prefs = getPrefs(context)
         val durationMillis = when (plan) {
+            "7_day_trial" -> SEVEN_DAY_MILLIS
             "1_month" -> ONE_MONTH_MILLIS
             "4_month" -> FOUR_MONTH_MILLIS
             else -> ONE_MONTH_MILLIS
@@ -28,9 +30,6 @@ object LicenseActivator {
             .putLong(KEY_EXPIRY, expiryTimestamp)
             .putString(KEY_PLAN, plan)
             .apply()
-
-        // TODO: hook into your existing License Manager here, e.g:
-        // LicenseManager.getInstance(context).setPremiumStatus(true, expiryTimestamp)
     }
 
     fun isPremiumActive(context: Context): Boolean {
@@ -38,7 +37,6 @@ object LicenseActivator {
         val isPremium = prefs.getBoolean(KEY_IS_PREMIUM, false)
         val expiry = prefs.getLong(KEY_EXPIRY, 0L)
         if (isPremium && System.currentTimeMillis() > expiry) {
-            // expired — auto deactivate
             prefs.edit().putBoolean(KEY_IS_PREMIUM, false).apply()
             return false
         }

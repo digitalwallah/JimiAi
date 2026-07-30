@@ -93,14 +93,14 @@ class CommandRouter(private val context: Context) {
                 val state = decision.optString("state").lowercase()
                 val turnOn = state != "off"
                 val success = SystemControlHelper.setFlashlight(context, turnOn)
-                if (success) "Flashlight ${if (turnOn) "on" else "off"} kar diya ✅"
+                if (success) "Flashlight ${if (turnOn) "on" else "off"} kar diya "
                 else "Flashlight control nahi ho paaya — camera permission check karo."
             }
 
             "open_app" -> {
                 val appName = decision.optString("app_name")
                 val opened = AppLauncher.openAppByName(context, appName)
-                if (opened) "$appName khol diya ✅" else "'$appName' naam ka app nahi mila 😕"
+                if (opened) "$appName open/khol diya " else "'$appName' naam ka app nahi mila 😕"
             }
 
             "save_memory" -> handleSaveMemory(decision, command, savedMemoriesText)
@@ -124,7 +124,7 @@ class CommandRouter(private val context: Context) {
             "notes_summary" -> handleNotesSummary()
 
             "generate_notes_pdf" -> handleGenerateNotesPdf()
-
+            "typing_help" -> handleTypingHelp(decision)
             else -> handleGeneralChat(command, savedMemoriesText)
         }
     }
@@ -142,7 +142,7 @@ class CommandRouter(private val context: Context) {
         }
 
         db.userFactDao().insert(UserFact(key = key, value = value))
-        return "Yaad rakh liya: $key - $value ✅"
+        return "Yaad rakh liya: $key - $value "
     }
 
     private suspend fun handleGeneralChat(command: String, savedMemoriesText: String): String {
@@ -234,7 +234,7 @@ class CommandRouter(private val context: Context) {
 
         return if (SettingsStore.isAutoSendEnabled(context)) {
             val sent = WhatsAppAutomator.sendMessage(context, phone, draftedMessage)
-            if (sent) "$contactName ko bhej diya:\n\"$draftedMessage\" ✅"
+            if (sent) "$contactName ko bhej diya:\n\"$draftedMessage\" "
             else "$contactName ka WhatsApp khola, lekin Send button auto-tap nahi ho paaya — khud tap kar do."
         } else {
             WhatsAppAutomator.openChatWithPrefilledText(context, phone, draftedMessage)
@@ -263,7 +263,7 @@ class CommandRouter(private val context: Context) {
             val node = service.findNodeByText(targetText)
             if (node != null) {
                 val success = service.clickNode(node)
-                return if (success) "'$targetText' dabaya ✅" else "'$targetText' mila lekin tap nahi ho paaya."
+                return if (success) "'$targetText' dabaya " else "'$targetText' mila lekin tap nahi ho paaya."
             }
             if (attempt < maxAttempts - 1) delay(500)
         }
@@ -340,7 +340,7 @@ class CommandRouter(private val context: Context) {
             when (direction) {
                 "set" -> "Brightness $percent% kar diya ☀️"
                 "up" -> "Brightness badha diya ☀️"
-                "down" -> "Brightness kam kar diya 🌙"
+                "down" -> "Brightness kam kar diya"
                 else -> "Brightness adjust kar diya"
             }
         } else "Brightness control nahi ho paaya."
@@ -459,7 +459,7 @@ class CommandRouter(private val context: Context) {
         if (content.isBlank()) return "Kya note karna hai, batao?"
 
         JimiDatabase.getInstance(context).noteDao().insert(Note(content = content))
-        return "Note save kar liya ✅"
+        return "Note save kar liya "
     }
 
     private suspend fun handleNotesSummary(): String {
@@ -493,5 +493,37 @@ class CommandRouter(private val context: Context) {
         }
         context.startActivity(intent)
         return "$featureName Premium feature hai 🔒 Payment screen khol raha hoon — upgrade karne ke baad ye unlock ho jayega!"
+    }
+    /** User kisi bhi app mein (WhatsApp, Instagram, etc.) type kar raha ho, usme madad karta hai.
+     * "suggest" mode: sirf bol ke suggestion deta hai, khud type nahi karta (safe default).
+     * "type" mode: seedha focused text-field mein type kar deta hai (jab user ne exact
+     * message dictate kiya ho). Premium feature hai. */
+    private fun handleTypingHelp(decision: org.json.JSONObject): String {
+        if (!LicenseActivator.isPremiumActive(context)) {
+            return launchPaywall("Typing help")
+        }
+
+        val mode = decision.optString("mode")
+        val instruction = decision.optString("instruction")
+        if (instruction.isBlank()) return "Kya likhna hai, thoda clear batao?"
+
+        val service = JimiAccessibilityService.instance
+            ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
+
+        return if (mode == "type") {
+            val node = service.findEditableNode()
+                ?: return "Mujhe abhi koi text-field nahi mil raha screen pe — pehle us app mein us field pe tap karke rakho."
+            val success = service.typeIntoNode(node, instruction)
+            if (success) "Type kar diya " else "Type karne ki koshish ki, lekin field mein likh nahi paaya."
+        } else {
+            val suggestion = claude.ask(
+                personaPrompt() + " " +
+                "User kisi app mein type kar raha hai aur tumse suggestion maang raha hai ki kya likhe. " +
+                "Ek natural, chhota, context ke hisaab se sahi suggestion do — sirf suggested text return " +
+                "karo, kisi explanation ke saath nahi.",
+                instruction
+            )
+            "Ye likh sakte ho:\n\"$suggestion\"\nAgar pasand aaye to bolo 'ye likh do', main type kar dunga."
+        }
     }
 }

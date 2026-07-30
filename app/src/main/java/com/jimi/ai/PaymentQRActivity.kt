@@ -11,12 +11,11 @@ import com.google.zxing.qrcode.QRCodeWriter
 
 class PaymentQRActivity : AppCompatActivity() {
 
-    // TODO: replace with your real UPI ID and name
     private val UPI_ID = "mdyasin7860@ybl"
     private val PAYEE_NAME = "Jimi App"
 
     private var selectedPlan = "1_month"
-    private var selectedAmount = 99
+    private var selectedAmount = 69
     private var currentDocId: String? = null
     private var listenerRegistration: ListenerRegistration? = null
 
@@ -24,14 +23,16 @@ class PaymentQRActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_payment_qr)
 
-        // ---- Wire up your existing views (adjust IDs to your layout) ----
-        val btnOneMonth = findViewById<android.widget.Button>(R.id.btnOneMonth)
-        val btnFourMonth = findViewById<android.widget.Button>(R.id.btnFourMonth)
+        val cardTrial = findViewById<android.widget.LinearLayout>(R.id.cardTrial)
+        val cardOneMonth = findViewById<android.widget.LinearLayout>(R.id.cardOneMonth)
+        val cardFourMonth = findViewById<android.widget.LinearLayout>(R.id.cardFourMonth)
         val qrImageView = findViewById<android.widget.ImageView>(R.id.qrImageView)
         val etUtr = findViewById<android.widget.EditText>(R.id.etUtr)
         val etPhone = findViewById<android.widget.EditText>(R.id.etPhone)
         val btnSubmit = findViewById<android.widget.Button>(R.id.btnSubmit)
         val tvStatus = findViewById<android.widget.TextView>(R.id.tvStatus)
+
+        val allCards = listOf(cardTrial, cardOneMonth, cardFourMonth)
 
         fun refreshQr() {
             val upiUri = "upi://pay?pa=$UPI_ID&pn=${PAYEE_NAME.replace(" ", "%20")}" +
@@ -39,19 +40,38 @@ class PaymentQRActivity : AppCompatActivity() {
             qrImageView.setImageBitmap(generateQrBitmap(upiUri))
         }
 
-        btnOneMonth.setOnClickListener {
+        fun selectCard(selected: android.widget.LinearLayout) {
+            allCards.forEach { card ->
+                card.setBackgroundResource(
+                    if (card == selected) R.drawable.bg_plan_card_selected
+                    else R.drawable.bg_plan_card_unselected
+                )
+            }
+        }
+
+        cardTrial.setOnClickListener {
+            selectedPlan = "7_day_trial"
+            selectedAmount = 5
+            selectCard(cardTrial)
+            refreshQr()
+        }
+
+        cardOneMonth.setOnClickListener {
             selectedPlan = "1_month"
-            selectedAmount = 99
+            selectedAmount = 69
+            selectCard(cardOneMonth)
             refreshQr()
         }
 
-        btnFourMonth.setOnClickListener {
+        cardFourMonth.setOnClickListener {
             selectedPlan = "4_month"
-            selectedAmount = 299
+            selectedAmount = 229
+            selectCard(cardFourMonth)
             refreshQr()
         }
 
-        refreshQr() // default QR shown on load
+        selectCard(cardOneMonth) // default selected plan on load
+        refreshQr()
 
         btnSubmit.setOnClickListener {
             val utr = etUtr.text.toString().trim()

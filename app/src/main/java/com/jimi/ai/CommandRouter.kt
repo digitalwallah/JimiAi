@@ -121,6 +121,8 @@ class CommandRouter(private val context: Context) {
 
             "set_timer" -> handleSetTimer(decision)
 
+            "explain_screen" -> handleExplainScreen(decision)
+
             else -> handleGeneralChat(command, savedMemoriesText)
         }
     }
@@ -167,7 +169,9 @@ class CommandRouter(private val context: Context) {
             "10) Music/video ko play/pause/next/previous kar sakte ho, chahe koi bhi player chal raha ho. " +
             "11) Alarm set kar sakte ho bole gaye time pe. " +
             "12) Timer set kar sakte ho boli gayi duration ke liye. " +
-            "13) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
+            "13) Screen pe dikh rahe kisi bhi content ko samjha, translate, ya calculate kar sakte ho " +
+            "(jaise 'iska matlab kya hai', 'ye translate karo'). " +
+            "14) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
             "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
             "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
             "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
@@ -421,5 +425,33 @@ class CommandRouter(private val context: Context) {
             else -> "$seconds second"
         }
         return if (success) "$readable ka timer laga diya ⏱️" else "Timer set nahi ho paaya."
+    }
+
+    /** Screen pe dikh raha content padh kar samjhata/translate/calculate karta hai — Premium feature. */
+    private suspend fun handleExplainScreen(decision: org.json.JSONObject): String {
+        if (!LicenseActivator.isPremiumActive(context)) {
+            val intent = android.content.Intent(context, PaymentQRActivity::class.java).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+            return "Screen samjhana/translate karna Premium feature hai 🔒 Payment screen khol raha hoon — upgrade karne ke baad ye unlock ho jayega!"
+        }
+
+        val service = JimiAccessibilityService.instance
+            ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
+
+        val screenText = service.getScreenText()
+        if (screenText.isBlank()) return "Screen pe mujhe koi text nahi mil raha abhi."
+
+        val instruction = decision.optString("instruction").ifBlank { "Isse samjhao" }
+
+        return claude.ask(
+            "Tum Jimi ho. User ne apni screen pe dikh rahe content ke baare mein pucha hai. " +
+            "Neeche wahi screen ka text diya gaya hai. User ka instruction follow karo — agar translate " +
+            "karne ko bola hai toh translate karo, agar matlab/summary poochha hai toh samjhao, agar koi " +
+            "calculation/math hai toh calculate karke batao. Chhota, natural Hinglish reply do.\n\n" +
+            "Screen ka content: $screenText",
+            instruction
+        )
     }
 }

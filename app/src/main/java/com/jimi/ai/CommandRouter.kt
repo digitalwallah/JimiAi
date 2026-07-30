@@ -81,11 +81,7 @@ class CommandRouter(private val context: Context) {
                 if (LicenseActivator.isPremiumActive(context)) {
                     handleYouTube(decision)
                 } else {
-                    val intent = android.content.Intent(context, PaymentQRActivity::class.java).apply {
-                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    context.startActivity(intent)
-                    "YouTube play ek premium feature hai — payment QR khol diya hai, complete karke phir try karna 🔒"
+                    launchPaywall("YouTube play")
                 }
             }
 
@@ -122,6 +118,12 @@ class CommandRouter(private val context: Context) {
             "set_timer" -> handleSetTimer(decision)
 
             "explain_screen" -> handleExplainScreen(decision)
+
+            "save_note" -> handleSaveNote(decision)
+
+            "notes_summary" -> handleNotesSummary()
+
+            "generate_notes_pdf" -> handleGenerateNotesPdf()
 
             else -> handleGeneralChat(command, savedMemoriesText)
         }
@@ -171,7 +173,9 @@ class CommandRouter(private val context: Context) {
             "12) Timer set kar sakte ho boli gayi duration ke liye. " +
             "13) Screen pe dikh rahe kisi bhi content ko samjha, translate, ya calculate kar sakte ho " +
             "(jaise 'iska matlab kya hai', 'ye translate karo'). " +
-            "14) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
+            "14) Notes save kar sakte ho, unka summary de sakte ho, aur unka professional PDF bana " +
+            "ke share/download kara sakte ho. " +
+            "15) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
             "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
             "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
             "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
@@ -427,15 +431,8 @@ class CommandRouter(private val context: Context) {
         return if (success) "$readable ka timer laga diya ⏱️" else "Timer set nahi ho paaya."
     }
 
-    /** Screen pe dikh raha content padh kar samjhata/translate/calculate karta hai — Premium feature. */
     private suspend fun handleExplainScreen(decision: org.json.JSONObject): String {
-        if (!LicenseActivator.isPremiumActive(context)) {
-            val intent = android.content.Intent(context, PaymentQRActivity::class.java).apply {
-                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-            }
-            context.startActivity(intent)
-            return "Screen samjhana/translate karna Premium feature hai 🔒 Payment screen khol raha hoon — upgrade karne ke baad ye unlock ho jayega!"
-        }
+        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Screen samjhana/translate karna")
 
         val service = JimiAccessibilityService.instance
             ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
@@ -453,5 +450,48 @@ class CommandRouter(private val context: Context) {
             "Screen ka content: $screenText",
             instruction
         )
+    }
+
+    private suspend fun handleSaveNote(decision: org.json.JSONObject): String {
+        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Notes save karna")
+
+        val content = decision.optString("content")
+        if (content.isBlank()) return "Kya note karna hai, batao?"
+
+        JimiDatabase.getInstance(context).noteDao().insert(Note(content = content))
+        return "Note save kar liya ✅"
+    }
+
+    private suspend fun handleNotesSummary(): String {
+        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Notes summary")
+
+        val notes = JimiDatabase.getInstance(context).noteDao().getAll()
+        if (notes.isEmpty()) return "Abhi koi notes saved nahi hain."
+
+        val notesText = notes.joinToString("\n") { "- ${it.content}" }
+        return claude.ask(
+            "Tum Jimi ho. Neeche user ke saare saved notes hain. Inka ek chhota, clear, organized " +
+            "summary do — Hinglish mein, bullet points ki tarah, important points highlight karke.",
+            notesText
+        )
+    }
+
+    private suspend fun handleGenerateNotesPdf(): String {
+        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Notes ka PDF banana")
+
+        val notes = JimiDatabase.getInstance(context).noteDao().getAll()
+        if (notes.isEmpty()) return "Abhi koi notes saved nahi hain jinka PDF banaya ja sake."
+
+        val file = NotesPdfGenerator.generate(context, notes)
+        NotesPdfGenerator.shareFile(context, file)
+        return "PDF ban gaya aur device pe save ho gaya 📄 Share/Download screen khol diya hai."
+    }
+
+    private fun launchPaywall(featureName: String): String {
+        val intent = android.content.Intent(context, PaymentQRActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+        return "$featureName Premium feature hai 🔒 Payment screen khol raha hoon — upgrade karne ke baad ye unlock ho jayega!"
     }
 }

@@ -92,6 +92,8 @@ class ClaudeApiClient(private val apiKey: String) {
             17. notes_summary -> {"action":"notes_summary"}
             18. generate_notes_pdf -> {"action":"generate_notes_pdf"}
             19. typing_help -> {"action":"typing_help","mode":"<'suggest' agar user sirf salah maang raha hai jaise 'yaha kya likhu', 'kya reply karu'; 'type' agar user ne exact message dictate kiya hai jaise 'ye likh do: ...', 'type kardo ki ...'>","instruction":"<user ka poora request/context - jo bhi bola hai>"}
+            20. generate_topic_pdf -> {"action":"generate_topic_pdf","topic":"<jis topic/subject pe user ne PDF/notes banane ko bola, jaise 'Photosynthesis', 'French Revolution'>"}
+            21. import_document -> {"action":"import_document"}
 
             Important rules:
             - Contact naam aur app naam (whatsapp_send, make_call, open_app ke andar) HAMESHA Roman/English
@@ -121,13 +123,20 @@ class ClaudeApiClient(private val apiKey: String) {
               ke liye note bana do" — content field mein user ka poora point verbatim daalo.
               notes_summary tab use karo jab user apne saare saved notes ka summary/overview maange
               (jaise "mere notes ka summary do", "kya kya note kiya hai batao").
-              generate_notes_pdf tab use karo jab user PDF banane/download/share karne ko bole
+              generate_notes_pdf tab use karo jab user apne SAVED NOTES ka PDF banane ko bole
               (jaise "notes ka PDF banao", "PDF bhejo", "notes download karo").
             - typing_help tabhi use karo jab user kisi doosre app (WhatsApp, Instagram, etc.) mein
               screen pe dikh rahe kisi text-field mein kya likhna hai iske baare mein pooche ya bole,
               jaise "yaha kya likhu", "isko reply me kya bolu", "ye type kar do [message]". explain_screen
               se alag hai - explain_screen kisi cheez ko samjhane/translate karne ke liye hai, typing_help
               naya text likhne/suggest karne ke liye hai.
+            - generate_topic_pdf tab use karo jab user kisi SUBJECT/TOPIC PE naya study material/notes/PDF
+              banane ko bole — jaise "Photosynthesis pe notes banao", "History ka PDF chahiye", "explain
+              karke PDF do". Ye generate_notes_pdf se alag hai — wo saved notes ka hai, ye ek bilkul naya
+              topic explain karke document banane ke liye hai.
+            - import_document tab use karo jab user apni PURANI PDF ya IMAGE ko naya/professional/better
+              banane ko bole — jaise "meri purani PDF ko naya banado", "is image ka PDF banao", "document
+              import karo", "purani file se achha PDF banao".
 
             - SAVE_MEMORY vs CHAT_REPLY (bahut zaroori, isme galti mat karna):
               save_memory SIRF tab use karo jab user KHUD apni marzi se ek NAYA FACT/STATEMENT bata raha
@@ -159,6 +168,9 @@ class ClaudeApiClient(private val apiKey: String) {
               - "notes ka pdf bana do" -> generate_notes_pdf
               - "yaha kya likhu" -> typing_help (mode="suggest")
               - "ise reply me bol do main busy hoon" -> typing_help (mode="type", instruction="main busy hoon")
+              - "photosynthesis pe notes bana do" -> generate_topic_pdf (topic="Photosynthesis")
+              - "meri purani pdf ko naya banado" -> import_document
+              - "is image se professional pdf banao" -> import_document
 
             $memorySection$historySection
             Sirf raw JSON return karo.
@@ -170,6 +182,69 @@ class ClaudeApiClient(private val apiKey: String) {
             JSONObject(cleaned)
         } catch (e: Exception) {
             JSONObject().apply { put("action", "chat_reply") }
+        }
+    }
+
+    /** Ek professional, structured document (headings, paragraphs, tables, charts, flowcharts)
+     * JSON format mein generate karwata hai — is JSON ko DocumentBlockParser parse karke
+     * AdvancedPdfGenerator ko deta hai jo actual PDF banata hai. */
+    fun generateStructuredDocument(topic: String, sourceContent: String = ""): JSONObject {
+        val sourceSection = if (sourceContent.isNotBlank()) {
+            "Neeche user ka original content diya gaya hai jise reorganize/explain karna hai:\n$sourceContent\n"
+        } else ""
+
+        val system = """
+            Tum ek professional document-writer ho. Tumhara kaam hai ek study-quality, well-structured
+            document JSON format mein banana - jaisa ek top-class educational PDF (Gemini/ChatGPT jaisa
+            professional) dikhta hai. SIRF JSON return karo, koi extra text, koi markdown fence nahi.
+
+            JSON format:
+            {
+              "title": "<document ka clear title>",
+              "blocks": [
+                {"type":"heading","text":"...","level":1},
+                {"type":"paragraph","text":"..."},
+                {"type":"bullet_list","items":["...","..."]},
+                {"type":"numbered_list","items":["...","..."]},
+                {"type":"table","headers":["Col1","Col2"],"rows":[["a","b"],["c","d"]]},
+                {"type":"bar_chart","title":"...","labels":["A","B"],"values":[10,20]},
+                {"type":"line_chart","title":"...","labels":["Jan","Feb"],"values":[5,15]},
+                {"type":"pie_chart","title":"...","labels":["X","Y"],"values":[60,40]},
+                {"type":"flowchart","title":"...","steps":["Step 1","Step 2","Step 3"]},
+                {"type":"divider"}
+              ]
+            }
+
+            Rules:
+            - level=1 heading sirf main sections ke liye, level=2 sub-sections ke liye.
+            - Jahan bhi numeric/comparison data ho, ek bar_chart ya pie_chart zaroor add karo.
+            - Jahan bhi ek process/sequence/steps hon (jaise "kaise hota hai", "steps"), ek flowchart
+              zaroor add karo.
+            - Jahan comparison/structured data ho (jaise pros/cons, categories), table use karo.
+            - Content clear, well-organized, aur student/professional-grade hona chahiye - jaisa best
+              educational material dikhta hai. Achhi tarah headings se organize karo.
+            - Agar user ne kisi specific language (Hindi/English/Hinglish) mein likha/bola hai, wahi
+              language content mein use karo. Agar source content diya gaya hai, usi ke language mein raho.
+            - Kam se kam 1 chart/diagram/table zaroor include karo jahan bhi genuinely relevant ho -
+              lekin random/forced chart mat daalo agar data uske liye fit nahi karta.
+
+            $sourceSection
+            Sirf raw JSON return karo.
+        """.trimIndent()
+
+        val raw = ask(system, "Topic/Instruction: $topic").trim()
+        return try {
+            JSONObject(extractJson(raw))
+        } catch (e: Exception) {
+            JSONObject().apply {
+                put("title", topic.ifBlank { "Jimi Document" })
+                put("blocks", JSONArray().put(
+                    JSONObject().apply {
+                        put("type", "paragraph")
+                        put("text", raw.ifBlank { "Content generate nahi ho paaya." })
+                    }
+                ))
+            }
         }
     }
 

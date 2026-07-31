@@ -45,10 +45,15 @@
          wo screen seedha khol deta hai) -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
-    <!-- NAYA: kuch OEM clock apps (jaise deskclock/.HandleSetAlarmApiCalls) ACTION_SET_ALARM ko
+    <!-- kuch OEM clock apps (jaise deskclock/.HandleSetAlarmApiCalls) ACTION_SET_ALARM ko
          strictly is permission ke bina block kar dete hain (SecurityException: Permission Denial).
          Ye ek normal, install-time permission hai — koi runtime dialog nahi maangega. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+
+    <!-- Screen-reading (OCR) feature ke liye: purane Android (11 se neeche) pe screenshot
+         lene ka fallback tareeka MediaProjection hai, jiske liye ye foreground-service
+         type declare karna zaroori hai Android 14+ target karne par. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <application
         android:allowBackup="true"
@@ -91,6 +96,13 @@
             android:name=".WakeWordService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <!-- PURANE Android (11 se neeche) ke liye screenshot capture fallback -
+             MediaProjection permission ek baar mile ke baad ye service usko zinda rakhta hai. -->
+        <service
+            android:name=".ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
         <!-- Proactive check-in ke liye BroadcastReceiver - alarm fire hone par notification dikhata hai -->
         <receiver

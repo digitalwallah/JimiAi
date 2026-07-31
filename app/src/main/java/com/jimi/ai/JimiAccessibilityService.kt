@@ -1,9 +1,13 @@
 package com.jimi.ai
 
 import android.accessibilityservice.AccessibilityService
+import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
+import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 class JimiAccessibilityService : AccessibilityService() {
 
@@ -97,6 +101,40 @@ class JimiAccessibilityService : AccessibilityService() {
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             collectText(child, sb)
+        }
+    }
+
+    /** Android 11+ (API 30+) pe silent screenshot leta hai - koi popup/permission dialog nahi,
+     * kyunki Accessibility Service ko ye capability enable hote hi mil jaati hai. Images/PDF
+     * jaisi non-text screens ko OCR se padhne ke liye use hota hai. Purane Android pe null
+     * return karta hai - wahan ScreenCaptureService (MediaProjection) fallback use hota hai. */
+    suspend fun captureScreenshotBitmap(): Bitmap? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        return suspendCancellableCoroutine { cont ->
+            try {
+                takeScreenshot(
+                    Display.DEFAULT_DISPLAY,
+                    mainExecutor,
+                    object : TakeScreenshotCallback {
+                        override fun onSuccess(result: ScreenshotResult) {
+                            val bitmap = try {
+                                Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)
+                                    ?.copy(Bitmap.Config.ARGB_8888, false)
+                            } catch (e: Exception) {
+                                null
+                            } finally {
+                                result.hardwareBuffer.close()
+                            }
+                            cont.resume(bitmap) {}
+                        }
+                        override fun onFailure(errorCode: Int) {
+                            cont.resume(null) {}
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                cont.resume(null) {}
+            }
         }
     }
 }

@@ -1,8 +1,8 @@
 package com.jimi.ai
 
 import android.content.Context
-import kotlinx.coroutines.delay
 import android.graphics.Bitmap
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 object QuickCommandParser {
@@ -95,14 +95,14 @@ class CommandRouter(private val context: Context) {
                 val state = decision.optString("state").lowercase()
                 val turnOn = state != "off"
                 val success = SystemControlHelper.setFlashlight(context, turnOn)
-                if (success) "Flashlight ${if (turnOn) "on" else "off"} kar diya "
+                if (success) "Flashlight ${if (turnOn) "on" else "off"} kar diya ✅"
                 else "Flashlight control nahi ho paaya — camera permission check karo."
             }
 
             "open_app" -> {
                 val appName = decision.optString("app_name")
                 val opened = AppLauncher.openAppByName(context, appName)
-                if (opened) "$appName open/khol diya " else "'$appName' naam ka app nahi mila 😕"
+                if (opened) "$appName khol diya ✅" else "'$appName' naam ka app nahi mila 😕"
             }
 
             "save_memory" -> handleSaveMemory(decision, command, savedMemoriesText)
@@ -126,7 +126,13 @@ class CommandRouter(private val context: Context) {
             "notes_summary" -> handleNotesSummary()
 
             "generate_notes_pdf" -> handleGenerateNotesPdf()
+
             "typing_help" -> handleTypingHelp(decision)
+
+            "generate_topic_pdf" -> handleGenerateTopicPdf(decision)
+
+            "import_document" -> handleImportDocument()
+
             else -> handleGeneralChat(command, savedMemoriesText)
         }
     }
@@ -144,7 +150,7 @@ class CommandRouter(private val context: Context) {
         }
 
         db.userFactDao().insert(UserFact(key = key, value = value))
-        return "Yaad rakh liya: $key - $value "
+        return "Yaad rakh liya: $key - $value ✅"
     }
 
     private suspend fun handleGeneralChat(command: String, savedMemoriesText: String): String {
@@ -175,9 +181,14 @@ class CommandRouter(private val context: Context) {
             "12) Timer set kar sakte ho boli gayi duration ke liye. " +
             "13) Screen pe dikh rahe kisi bhi content ko samjha, translate, ya calculate kar sakte ho " +
             "(jaise 'iska matlab kya hai', 'ye translate karo'). " +
-            "14) Notes save kar sakte ho, unka summary de sakte ho, aur unka professional PDF bana " +
-            "ke share/download kara sakte ho. " +
-            "15) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
+            "14) Notes save kar sakte ho, unka summary de sakte ho, aur unka professional PDF (charts, " +
+            "tables, diagrams ke saath) bana ke share/download kara sakte ho. " +
+            "15) Kisi bhi topic pe bolo, poora study-material professional PDF bana sakte ho (jaise " +
+            "'Photosynthesis pe PDF banao'). " +
+            "16) User ki purani PDF ya image import karke usko naya, professional, well-organized PDF " +
+            "mein convert kar sakte ho. " +
+            "17) User kisi app mein type kar raha ho toh usko sahi message likhne mein madad kar sakte ho. " +
+            "18) 'Always Listening' feature (jo app me Switch 3 se ON/OFF hota hai) - yeh ON hone par " +
             "tum bina button dabaye, 'Hey Jimi' bolke bhi activate ho sakte ho, aur yeh SCREEN OFF hone " +
             "par bhi kaam karta hai (background me chalta rehta hai). Agar user poochhe ki 'screen off me " +
             "kaam karoge' ya 'bina button dabaye sunoge', toh HAAN bolo aur bata do ki Switch 3 'Always " +
@@ -203,14 +214,8 @@ class CommandRouter(private val context: Context) {
 
     private fun personaPrompt(): String {
         val moodNote = "Agar user ke message mein koi emotional cue ho (jaise 'tired hoon', 'bura din tha', " +
-    "'khush hoon', 'stress ho raha hai'), toh seedha kaam pe mat kudo - pehle warmly acknowledge karo, " +
-    "aur agar natural lage to poocho ki kya hua (jaise 'kya hua, sab theek hai?'), taaki user share kar " +
-    "sake agar chahe. Agar user gussa ho ya bole 'tumse baat nahi karni', 'chup raho' jaisa kuch, toh " +
-    "uski feeling ko respect karo - zid mat karo, defensive mat bano, bas softly, patiently reconnect " +
-    "karne ki koshish karo (ek hi baar, dobara zabardasti mat karo). Agar user mein genuinely gehri " +
-    "udaasi/hopelessness ke signs dikhein (na ki sirf halka tired/bura din), toh halke se, ek baar, " +
-    "suggest karo ki kisi apne se ya professional se baat karein - lekin ye har chhoti si baat pe mat " +
-    "bolo, sirf jab genuinely zaroori lage. Phir agar koi command bhi ho usse execute karo."
+            "'khush hoon', 'stress ho raha hai'), toh seedha kaam pe mat kudo - pehle ek chhoti si " +
+            "acknowledgment line do (over-the-top nahi, natural), phir agar koi command bhi ho usse execute karo."
         val languageNote = "IMPORTANT: User jis language mein message likhe/bole (pure English, pure Hindi, " +
             "ya Hinglish), tum bilkul usi language/style mein reply do. Agar user pure English mein likhe, " +
             "tum bhi pure English mein jawab do - Hindi words mat mix karo. Agar Hinglish likhe, tum bhi " +
@@ -242,7 +247,7 @@ class CommandRouter(private val context: Context) {
 
         return if (SettingsStore.isAutoSendEnabled(context)) {
             val sent = WhatsAppAutomator.sendMessage(context, phone, draftedMessage)
-            if (sent) "$contactName ko bhej diya:\n\"$draftedMessage\" "
+            if (sent) "$contactName ko bhej diya:\n\"$draftedMessage\" ✅"
             else "$contactName ka WhatsApp khola, lekin Send button auto-tap nahi ho paaya — khud tap kar do."
         } else {
             WhatsAppAutomator.openChatWithPrefilledText(context, phone, draftedMessage)
@@ -271,7 +276,7 @@ class CommandRouter(private val context: Context) {
             val node = service.findNodeByText(targetText)
             if (node != null) {
                 val success = service.clickNode(node)
-                return if (success) "'$targetText' dabaya " else "'$targetText' mila lekin tap nahi ho paaya."
+                return if (success) "'$targetText' dabaya ✅" else "'$targetText' mila lekin tap nahi ho paaya."
             }
             if (attempt < maxAttempts - 1) delay(500)
         }
@@ -348,7 +353,7 @@ class CommandRouter(private val context: Context) {
             when (direction) {
                 "set" -> "Brightness $percent% kar diya ☀️"
                 "up" -> "Brightness badha diya ☀️"
-                "down" -> "Brightness kam kar diya"
+                "down" -> "Brightness kam kar diya 🌙"
                 else -> "Brightness adjust kar diya"
             }
         } else "Brightness control nahi ho paaya."
@@ -440,51 +445,50 @@ class CommandRouter(private val context: Context) {
     }
 
     private suspend fun handleExplainScreen(decision: org.json.JSONObject): String {
-    if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Screen samjhana/translate karna")
+        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Screen samjhana/translate karna")
 
-    val service = JimiAccessibilityService.instance
-        ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
+        val service = JimiAccessibilityService.instance
+            ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
 
-    var screenText = service.getScreenText()
+        var screenText = service.getScreenText()
 
-    // Agar accessible text bahut kam/khaali mile (image, PDF, ya canvas-rendered content jaisa),
-    // to screenshot lekar OCR (ML Kit, on-device) se text nikalne ki koshish karo.
-    if (screenText.trim().length < 15) {
-        val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            service.captureScreenshotBitmap()
-        } else if (ScreenCaptureService.isReady()) {
-            captureViaMediaProjection()
-        } else null
+        if (screenText.trim().length < 15) {
+            val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                service.captureScreenshotBitmap()
+            } else if (ScreenCaptureService.isReady()) {
+                captureViaMediaProjection()
+            } else null
 
-        if (bitmap != null) {
-            val ocrText = ScreenOcrHelper.recognizeText(bitmap)
-            if (ocrText.isNotBlank()) screenText = ocrText
+            if (bitmap != null) {
+                val ocrText = ScreenOcrHelper.recognizeText(bitmap)
+                if (ocrText.isNotBlank()) screenText = ocrText
+            }
         }
+
+        if (screenText.isBlank()) {
+            return if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R && !ScreenCaptureService.isReady())
+                "Screen pe koi text nahi mil raha. Purane Android pe images/PDF padhne ke liye ek baar Settings (⚙️) se 'Screen Capture' allow karo."
+            else {
+                "Screen pe mujhe koi text nahi mil raha abhi."
+            }
+        }
+
+        val instruction = decision.optString("instruction").ifBlank { "Isse samjhao" }
+
+        return claude.ask(
+            "Tum Jimi ho. User ne apni screen pe dikh rahe content ke baare mein pucha hai. " +
+            "Neeche wahi screen ka text diya gaya hai. User ka instruction follow karo — agar translate " +
+            "karne ko bola hai toh translate karo, agar matlab/summary poochha hai toh samjhao, agar koi " +
+            "calculation/math hai toh calculate karke batao. Chhota, natural Hinglish reply do.\n\n" +
+            "Screen ka content: $screenText",
+            instruction
+        )
     }
 
-    if (screenText.isBlank()) {
-        return if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R && !ScreenCaptureService.isReady()) {
-            "Screen pe koi text nahi mil raha. Purane Android pe images/PDF padhne ke liye ek baar Settings (⚙️) se 'Screen-reading enable karo' permission de do."
-        } else {
-            "Screen pe mujhe koi text nahi mil raha abhi."
-        }
+    private suspend fun captureViaMediaProjection(): Bitmap? = suspendCancellableCoroutine { cont ->
+        ScreenCaptureService.captureFrame { bitmap -> cont.resume(bitmap) {} }
     }
 
-    val instruction = decision.optString("instruction").ifBlank { "Isse samjhao" }
-
-    return claude.ask(
-        "Tum Jimi ho. User ne apni screen pe dikh rahe content ke baare mein pucha hai. " +
-        "Neeche wahi screen ka text diya gaya hai. User ka instruction follow karo — agar translate " +
-        "karne ko bola hai toh translate karo, agar matlab/summary poochha hai toh samjhao, agar koi " +
-        "calculation/math hai toh calculate karke batao. Chhota, natural Hinglish reply do.\n\n" +
-        "Screen ka content: $screenText",
-        instruction
-    )
-}
-
-private suspend fun captureViaMediaProjection(): Bitmap? = suspendCancellableCoroutine { cont ->
-    ScreenCaptureService.captureFrame { bitmap -> cont.resume(bitmap) {} }
-}
     private suspend fun handleSaveNote(decision: org.json.JSONObject): String {
         if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Notes save karna")
 
@@ -492,7 +496,7 @@ private suspend fun captureViaMediaProjection(): Bitmap? = suspendCancellableCor
         if (content.isBlank()) return "Kya note karna hai, batao?"
 
         JimiDatabase.getInstance(context).noteDao().insert(Note(content = content))
-        return "Note save kar liya "
+        return "Note save kar liya ✅"
     }
 
     private suspend fun handleNotesSummary(): String {
@@ -509,15 +513,50 @@ private suspend fun captureViaMediaProjection(): Bitmap? = suspendCancellableCor
         )
     }
 
+    /** Ab saved notes ka professional, structured PDF banata hai (headings, tables, charts) —
+     * plain bullet-text ke bajaye ek proper study-material jaisa document. */
     private suspend fun handleGenerateNotesPdf(): String {
         if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Notes ka PDF banana")
 
         val notes = JimiDatabase.getInstance(context).noteDao().getAll()
         if (notes.isEmpty()) return "Abhi koi notes saved nahi hain jinka PDF banaya ja sake."
 
-        val file = NotesPdfGenerator.generate(context, notes)
-        NotesPdfGenerator.shareFile(context, file)
+        val notesText = notes.joinToString("\n") { "- ${it.content}" }
+        val docJson = claude.generateStructuredDocument("Mere Notes", notesText)
+        val parsed = DocumentBlockParser.parse(docJson)
+        if (parsed.blocks.isEmpty()) return "PDF banane mein dikkat aa gayi, dobara try karo."
+
+        val file = AdvancedPdfGenerator.generate(context, parsed.title, parsed.blocks)
+        AdvancedPdfGenerator.shareFile(context, file)
         return "PDF ban gaya aur device pe save ho gaya 📄 Share/Download screen khol diya hai."
+    }
+
+    /** Naya feature: kisi bhi topic pe bolo, Jimi poora study-material professional PDF bana deta hai. */
+    private suspend fun handleGenerateTopicPdf(decision: org.json.JSONObject): String {
+        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Topic PDF banana")
+
+        val topic = decision.optString("topic")
+        if (topic.isBlank()) return "Kis topic pe PDF banana hai, batao?"
+
+        val docJson = claude.generateStructuredDocument(topic)
+        val parsed = DocumentBlockParser.parse(docJson)
+        if (parsed.blocks.isEmpty()) return "Content generate nahi ho paaya, dobara try karo."
+
+        val file = AdvancedPdfGenerator.generate(context, parsed.title, parsed.blocks)
+        AdvancedPdfGenerator.shareFile(context, file)
+        return "\"${parsed.title}\" ka professional PDF ban gaya 📄 Share/Download screen khol diya hai."
+    }
+
+    /** Naya feature: user apni purani PDF/image import kare, uska content nikal ke naya
+     * professional PDF banaya jayega — actual picker/OCR/generate logic DocumentImportActivity mein hai. */
+    private fun handleImportDocument(): String {
+        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Document import karna")
+
+        val intent = android.content.Intent(context, DocumentImportActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+        return "Document import screen khol raha hoon — apni image ya PDF select karo 📄"
     }
 
     private fun launchPaywall(featureName: String): String {
@@ -527,7 +566,8 @@ private suspend fun captureViaMediaProjection(): Bitmap? = suspendCancellableCor
         context.startActivity(intent)
         return "$featureName Premium feature hai 🔒 Payment screen khol raha hoon — upgrade karne ke baad ye unlock ho jayega!"
     }
-    /** User kisi bhi app mein (WhatsApp, Instagram, etc.) type kar raha ho, usme madad karta hai.
+
+    /** User kisi bhi app mein type kar raha ho, usme madad karta hai.
      * "suggest" mode: sirf bol ke suggestion deta hai, khud type nahi karta (safe default).
      * "type" mode: seedha focused text-field mein type kar deta hai (jab user ne exact
      * message dictate kiya ho). Premium feature hai. */
@@ -545,9 +585,9 @@ private suspend fun captureViaMediaProjection(): Bitmap? = suspendCancellableCor
 
         return if (mode == "type") {
             val node = service.findEditableNode()
-                ?: return "Mujhe abhi koi text-field nahi mil raha screen pe — pehle us app mein us field pe tap karke rakho."
+                ?: return "Mujhe abhi koi text-field nahi mil raha screen pe — pehle us app mein us field pe tap karke"
             val success = service.typeIntoNode(node, instruction)
-            if (success) "Type kar diya " else "Type karne ki koshish ki, lekin field mein likh nahi paaya."
+            if (success) "Type kar diya ✅" else "Type karne ki koshish ki, lekin field mein likh nahi paaya."
         } else {
             val suggestion = claude.ask(
                 personaPrompt() + " " +

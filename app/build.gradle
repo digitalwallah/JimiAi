@@ -52,6 +52,11 @@ dependencies {
     implementation 'androidx.room:room-runtime:2.6.1'
     implementation 'androidx.room:room-ktx:2.6.1'
     kapt 'androidx.room:room-compiler:2.6.1'
+
+    // ML Kit Text Recognition - fully on-device OCR, no cloud/API key/billing needed.
+    // Latin model covers English; Devanagari model covers Hindi script (screen text explain feature).
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'com.google.mlkit:text-recognition-devanagari:16.0.1'
 }
 
 apply plugin: 'com.google.gms.google-services'

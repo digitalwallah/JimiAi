@@ -32,6 +32,10 @@ class WakeWordService : Service() {
 
     private var awaitingCommand = false
 
+    // --- Foreground-app-aware pausing (prevents mic indicator during YouTube/calls/etc) ---
+    private lateinit var foregroundAppMonitor: ForegroundAppMonitor
+    private var isPausedForForegroundApp = false
+
     companion object {
         const val CHANNEL_ID = "jimi_wakeword_channel"
         const val NOTIF_ID = 42
@@ -98,6 +102,14 @@ class WakeWordService : Service() {
         setupRecognizer()
         startListeningCycle()
         scheduleWatchdog(this)
+
+        // Start foreground-app monitor to pause listening during YouTube/calls/camera etc.
+        foregroundAppMonitor = ForegroundAppMonitor(
+            context = this,
+            onShouldPause = { pauseForForegroundApp() },
+            onShouldResume = { resumeFromForegroundApp() }
+        )
+        foregroundAppMonitor.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
@@ -106,6 +118,7 @@ class WakeWordService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        foregroundAppMonitor.stop()
         abandonListeningFocus()
         recognizer?.destroy()
         wakeLock?.let { if (it.isHeld) it.release() }
@@ -220,6 +233,7 @@ class WakeWordService : Service() {
     }
 
     private fun startListeningCycle() {
+        if (isPausedForForegroundApp) return
         val rec = recognizer ?: return
         try {
             requestListeningFocus()
@@ -237,6 +251,7 @@ class WakeWordService : Service() {
     }
 
     private fun restartSoon(quick: Boolean) {
+        if (isPausedForForegroundApp) return
         val mediaPlaying = try { audioManager.isMusicActive } catch (e: Exception) { false }
         val delayMs = when {
             mediaPlaying -> 3000L
@@ -244,6 +259,26 @@ class WakeWordService : Service() {
             else -> 1200L
         }
         handler.postDelayed({ startListeningCycle() }, delayMs)
+    }
+
+    /** Called when user opens YouTube/camera/a call — stop actively listening so the mic indicator disappears. */
+    private fun pauseForForegroundApp() {
+        if (isPausedForForegroundApp) return
+        isPausedForForegroundApp = true
+        try {
+            recognizer?.stopListening()
+            recognizer?.cancel()
+        } catch (e: Exception) { }
+        abandonListeningFocus()
+        updateNotification("Jimi thodi der ke liye pause hai... 🔇")
+    }
+
+    /** Called when user leaves the pause-list app — resume normal always-listening. */
+    private fun resumeFromForegroundApp() {
+        if (!isPausedForForegroundApp) return
+        isPausedForForegroundApp = false
+        updateNotification("Jimi sun raha hai... 👂")
+        startListeningCycle()
     }
 
     private fun onHeard(text: String) {

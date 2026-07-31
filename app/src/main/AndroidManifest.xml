@@ -54,6 +54,9 @@
          lene ka fallback tareeka MediaProjection hai, jiske liye ye foreground-service
          type declare karna zaroori hai Android 14+ target karne par. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission
+    android:name="android.permission.PACKAGE_USAGE_STATS"
+    tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"

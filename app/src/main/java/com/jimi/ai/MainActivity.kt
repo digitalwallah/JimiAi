@@ -1,10 +1,13 @@
 package com.jimi.ai
 
 import android.Manifest
+import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.speech.RecognizerIntent
@@ -58,6 +61,20 @@ class MainActivity : AppCompatActivity() {
     ) { granted ->
         if (granted) launchVoiceInput()
         else Toast.makeText(this, "Mic permission ke bina voice command kaam nahi karega", Toast.LENGTH_SHORT).show()
+    }
+
+    // PURANE Android (11 se neeche) pe screen-reading (OCR) feature ke liye ek-baar wali
+    // MediaProjection permission. Grant hote hi ScreenCaptureService ko permanently start
+    // kar dete hain taaki future mein kabhi dobara na poochhna pade.
+    private val screenCapturePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            ScreenCaptureService.start(this, result.resultCode, result.data!!)
+            Toast.makeText(this, "Screen-reading enable ho gaya ✅", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Permission nahi mili — screen-reading (images/PDF) is device pe kaam nahi karega", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -202,6 +219,24 @@ class MainActivity : AppCompatActivity() {
         layout.addView(switchAutoSend)
         layout.addView(checkInLabel)
         layout.addView(switchCheckIn)
+
+        // Screen-reading (OCR) permission button - sirf purane Android (11 se neeche) pe dikhta hai,
+        // kyunki Android 11+ pe ye silently, bina kisi permission ke hi kaam karta hai.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && !ScreenCaptureService.isReady()) {
+            val screenReadLabel = TextView(this).apply {
+                text = "Screen-reading (images/PDF ka text padhne ke liye) - ek baar allow karo:"
+                setPadding(0, 24, 0, 4)
+            }
+            val btnEnableScreenRead = Button(this).apply {
+                text = "Screen-reading enable karo"
+            }
+            btnEnableScreenRead.setOnClickListener {
+                val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                screenCapturePermissionLauncher.launch(manager.createScreenCaptureIntent())
+            }
+            layout.addView(screenReadLabel)
+            layout.addView(btnEnableScreenRead)
+        }
 
         val scrollView = android.widget.ScrollView(this).apply { addView(layout) }
 

@@ -2,6 +2,8 @@ package com.jimi.ai
 
 import android.content.Context
 import kotlinx.coroutines.delay
+import android.graphics.Bitmap
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 object QuickCommandParser {
     private val brightnessRegex = Regex("""(brightness|chamak)\D{0,12}?(\d{1,3})""", RegexOption.IGNORE_CASE)
@@ -438,26 +440,51 @@ class CommandRouter(private val context: Context) {
     }
 
     private suspend fun handleExplainScreen(decision: org.json.JSONObject): String {
-        if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Screen samjhana/translate karna")
+    if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Screen samjhana/translate karna")
 
-        val service = JimiAccessibilityService.instance
-            ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
+    val service = JimiAccessibilityService.instance
+        ?: return "Accessibility permission on nahi hai, pehle wo enable karo."
 
-        val screenText = service.getScreenText()
-        if (screenText.isBlank()) return "Screen pe mujhe koi text nahi mil raha abhi."
+    var screenText = service.getScreenText()
 
-        val instruction = decision.optString("instruction").ifBlank { "Isse samjhao" }
+    // Agar accessible text bahut kam/khaali mile (image, PDF, ya canvas-rendered content jaisa),
+    // to screenshot lekar OCR (ML Kit, on-device) se text nikalne ki koshish karo.
+    if (screenText.trim().length < 15) {
+        val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            service.captureScreenshotBitmap()
+        } else if (ScreenCaptureService.isReady()) {
+            captureViaMediaProjection()
+        } else null
 
-        return claude.ask(
-            "Tum Jimi ho. User ne apni screen pe dikh rahe content ke baare mein pucha hai. " +
-            "Neeche wahi screen ka text diya gaya hai. User ka instruction follow karo — agar translate " +
-            "karne ko bola hai toh translate karo, agar matlab/summary poochha hai toh samjhao, agar koi " +
-            "calculation/math hai toh calculate karke batao. Chhota, natural Hinglish reply do.\n\n" +
-            "Screen ka content: $screenText",
-            instruction
-        )
+        if (bitmap != null) {
+            val ocrText = ScreenOcrHelper.recognizeText(bitmap)
+            if (ocrText.isNotBlank()) screenText = ocrText
+        }
     }
 
+    if (screenText.isBlank()) {
+        return if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R && !ScreenCaptureService.isReady()) {
+            "Screen pe koi text nahi mil raha. Purane Android pe images/PDF padhne ke liye ek baar Settings (⚙️) se 'Screen-reading enable karo' permission de do."
+        } else {
+            "Screen pe mujhe koi text nahi mil raha abhi."
+        }
+    }
+
+    val instruction = decision.optString("instruction").ifBlank { "Isse samjhao" }
+
+    return claude.ask(
+        "Tum Jimi ho. User ne apni screen pe dikh rahe content ke baare mein pucha hai. " +
+        "Neeche wahi screen ka text diya gaya hai. User ka instruction follow karo — agar translate " +
+        "karne ko bola hai toh translate karo, agar matlab/summary poochha hai toh samjhao, agar koi " +
+        "calculation/math hai toh calculate karke batao. Chhota, natural Hinglish reply do.\n\n" +
+        "Screen ka content: $screenText",
+        instruction
+    )
+}
+
+private suspend fun captureViaMediaProjection(): Bitmap? = suspendCancellableCoroutine { cont ->
+    ScreenCaptureService.captureFrame { bitmap -> cont.resume(bitmap) {} }
+}
     private suspend fun handleSaveNote(decision: org.json.JSONObject): String {
         if (!LicenseActivator.isPremiumActive(context)) return launchPaywall("Notes save karna")
 

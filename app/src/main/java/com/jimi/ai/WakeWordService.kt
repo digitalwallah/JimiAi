@@ -202,33 +202,64 @@ class WakeWordService : Service() {
             updateNotification("Is device pe speech recognition available nahi hai ❌")
             return
         }
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
-            setRecognitionListener(object : RecognitionListener {
-                override fun onResults(results: Bundle?) {
-                    abandonListeningFocus()
-                    val text = results
-                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()?.lowercase() ?: ""
-                    onHeard(text)
-                    restartSoon(quick = true)
+
+        // OEM ka default recognizer (Vivo/iQOO/FunTouch, MIUI, etc.) kai baar har listen-cycle
+        // pe ek floating mic UI dikhata hai jo screen ke upar aa jaata hai. Google ka recognizer
+        // silently background mein chalta hai bina koi UI dikhaye — isliye agar Google app
+        // installed hai, usko explicitly use karte hain taaki ye disturbance na ho.
+        val googleRecognizerComponent = findGoogleRecognizerComponent()
+
+        recognizer = if (googleRecognizerComponent != null) {
+            SpeechRecognizer.createSpeechRecognizer(this, googleRecognizerComponent)
+        } else {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        }
+
+        recognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onResults(results: Bundle?) {
+                abandonListeningFocus()
+                val text = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.lowercase() ?: ""
+                onHeard(text)
+                restartSoon(quick = true)
+            }
+            override fun onError(error: Int) {
+                abandonListeningFocus()
+                val isSilenceError = error == SpeechRecognizer.ERROR_NO_MATCH ||
+                    error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                if (!isSilenceError) {
+                    updateNotification("Recognizer error ($error) — retry ho raha hai... 👂")
                 }
-                override fun onError(error: Int) {
-                    abandonListeningFocus()
-                    val isSilenceError = error == SpeechRecognizer.ERROR_NO_MATCH ||
-                        error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-                    if (!isSilenceError) {
-                        updateNotification("Recognizer error ($error) — retry ho raha hai... 👂")
-                    }
-                    restartSoon(quick = isSilenceError)
-                }
-                override fun onReadyForSpeech(params: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {}
-                override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
+                restartSoon(quick = isSilenceError)
+            }
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+    }
+
+    /** Google ka speech-recognition service dhoondhta hai (agar Google app/GBoard installed hai)
+     * taaki OEM ke apne recognizer ke bajaye isko use kar sakein — ye silently kaam karta hai,
+     * koi floating UI nahi dikhata. */
+    private fun findGoogleRecognizerComponent(): android.content.ComponentName? {
+        return try {
+            val pm = packageManager
+            val services = pm.queryIntentServices(
+                Intent(android.speech.RecognitionService.SERVICE_INTERFACE), 0
+            )
+            val googleService = services.firstOrNull {
+                it.serviceInfo.packageName == "com.google.android.googlequicksearchbox"
+            }
+            googleService?.let {
+                android.content.ComponentName(it.serviceInfo.packageName, it.serviceInfo.name)
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 

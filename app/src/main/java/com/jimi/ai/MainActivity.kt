@@ -216,6 +216,7 @@ class MainActivity : AppCompatActivity() {
 
         layout.addView(btnPremium)
         layout.addView(btnAccessibility)
+        layout.addView(btnUsageAccess)
         layout.addView(claudeInput)
         layout.addView(youtubeInput)
         layout.addView(personaLabel)

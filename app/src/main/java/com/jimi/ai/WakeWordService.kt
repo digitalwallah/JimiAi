@@ -203,12 +203,7 @@ class WakeWordService : Service() {
             return
         }
 
-        // OEM ka default recognizer (Vivo/iQOO/FunTouch, MIUI, etc.) kai baar har listen-cycle
-        // pe ek floating mic UI dikhata hai jo screen ke upar aa jaata hai. Google ka recognizer
-        // silently background mein chalta hai bina koi UI dikhaye — isliye agar Google app
-        // installed hai, usko explicitly use karte hain taaki ye disturbance na ho.
         val googleRecognizerComponent = findGoogleRecognizerComponent()
-
         recognizer = if (googleRecognizerComponent != null) {
             SpeechRecognizer.createSpeechRecognizer(this, googleRecognizerComponent)
         } else {
@@ -243,9 +238,6 @@ class WakeWordService : Service() {
         })
     }
 
-    /** Google ka speech-recognition service dhoondhta hai (agar Google app/GBoard installed hai)
-     * taaki OEM ke apne recognizer ke bajaye isko use kar sakein — ye silently kaam karta hai,
-     * koi floating UI nahi dikhata. */
     private fun findGoogleRecognizerComponent(): android.content.ComponentName? {
         return try {
             val pm = packageManager

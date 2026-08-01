@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             ScreenCaptureService.start(this, result.resultCode, result.data!!)
-            Toast.makeText(this, "Screen-reading enable ho gaya ✅", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Screen-reading enable ho gaya", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "Permission nahi mili — screen-reading (images/PDF) is device pe kaam nahi karega", Toast.LENGTH_LONG).show()
         }
@@ -142,6 +142,15 @@ class MainActivity : AppCompatActivity() {
         }
         btnAccessibility.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+        val btnUsageAccess = Button(this).apply {
+            val monitor = ForegroundAppMonitor(this@MainActivity, {}, {})
+            text = if (monitor.hasUsageAccessPermission()) "Usage Access: ON ✅ (mic disturbance rukega)"
+            else "⚠️ Usage Access ON Karo (YouTube/call ke time mic disturb na kare)"
+        }
+        btnUsageAccess.setOnClickListener {
+            val monitor = ForegroundAppMonitor(this@MainActivity, {}, {})
+            monitor.requestUsageAccessPermission()
         }
 
         val claudeInput = EditText(this).apply {

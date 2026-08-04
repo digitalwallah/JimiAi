@@ -24,20 +24,34 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > jimi-release-key.jks
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/jimi-release-key.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Read versionName
+        id: version
+        run: |
+          VERSION_NAME=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName "\(.*\)".*/\1/')
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK as build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jimi-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: jimi-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
 
       - name: Create downloadable GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: Jimi build ${{ github.run_number }}
-          files: app/build/outputs/apk/debug/app-debug.apk
+          tag_name: v${{ steps.version.outputs.version_name }}
+          name: Jimi v${{ steps.version.outputs.version_name }}
+          files: app/build/outputs/apk/release/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

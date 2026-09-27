@@ -63,4 +63,39 @@ object SettingsStore {
 
     fun getVoiceCharacter(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("voice_character", "veer") ?: "veer"
+
+    // ---------- NAYA: VOICE SPEED / PITCH / LANGUAGE (character ke upar user-adjustable layer) ----------
+
+    /** Character ke base speech rate par multiply hota hai. 1.0 = normal. User "speak faster"/
+     * "speak slowly" bolke ise nudge kar sakta hai, ya exact value bhi bol sakta hai. */
+    fun setSpeechRateMultiplier(context: Context, multiplier: Float) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putFloat("speech_rate_multiplier", multiplier.coerceIn(0.5f, 2.0f)).apply()
+    }
+
+    fun getSpeechRateMultiplier(context: Context): Float =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat("speech_rate_multiplier", 1.0f)
+
+    /** -1f = "override nahi hai, character ka default pitch use karo". */
+    fun setPitchOverride(context: Context, pitch: Float) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putFloat("pitch_override", pitch.coerceIn(0.5f, 2.0f)).apply()
+    }
+
+    fun getPitchOverride(context: Context): Float =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat("pitch_override", -1f)
+
+    fun clearPitchOverride(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putFloat("pitch_override", -1f).apply()
+    }
+
+    /** "auto" = default hi-IN. User explicitly "hi-IN"/"en-IN" pick kar sakta hai. */
+    fun setLanguageOverride(context: Context, lang: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("language_override", lang).apply()
+    }
+
+    fun getLanguageOverride(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("language_override", "auto") ?: "auto"
 }

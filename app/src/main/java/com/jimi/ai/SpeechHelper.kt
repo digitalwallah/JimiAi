@@ -16,6 +16,11 @@ import java.util.Locale
  * (no cloud API/billing). "Arjun" (21, younger male), "Veer" (26, deep male), "Ananya" (younger
  * female, soft), "Isha" (26, warm female). Uses SSML markup for natural pauses.
  *
+ * NAYA: character ke upar ab ek user-adjustable layer bhi hai — speech rate multiplier, pitch
+ * override, language override (SettingsStore mein store hota hai) — jise voice command se
+ * ("speak faster", "speak in Hindi" waghera) change kiya ja sakta hai, bina character system
+ * ko touch kiye.
+ *
  * NOTE: this gives distinguishable characters via pitch/pace, not true voice acting - that
  * level of realism needs a cloud neural TTS service, which this deliberately avoids.
  */
@@ -34,8 +39,9 @@ class SpeechHelper(private val context: Context) {
         }
     }
 
-    /** Current persona ke hisaab se best-matching voice + pitch/rate apply karta hai. Settings
-     * badalne ke baad bhi is function ko dubara call kiya ja sakta hai (naya character turant lagu ho). */
+    /** Current persona ke hisaab se best-matching voice + pitch/rate apply karta hai, phir
+     * uske upar user ke speed/pitch/language overrides (agar set hain) lagata hai. Ab speak()
+     * har baar isse call karta hai, taaki koi bhi setting change turant agle reply mein sunayi de. */
     fun applyVoiceCharacter() {
         val engine = tts ?: return
         val character = SettingsStore.getVoiceCharacter(context)
@@ -55,12 +61,27 @@ class SpeechHelper(private val context: Context) {
 
         if (bestVoice != null) engine.voice = bestVoice
 
+        val basePitch: Float
+        val baseRate: Float
         when (character) {
-            "arjun" -> { engine.setPitch(1.15f); engine.setSpeechRate(1.05f) }   // 21, younger, thoda fast/high
-            "veer" -> { engine.setPitch(0.80f); engine.setSpeechRate(0.90f) }   // 26, deep, slow/confident
-            "ananya" -> { engine.setPitch(1.20f); engine.setSpeechRate(0.95f) } // younger female, soft
-            "isha" -> { engine.setPitch(1.05f); engine.setSpeechRate(0.92f) }   // 26, warm female
-            else -> { engine.setPitch(1.0f); engine.setSpeechRate(0.92f) }
+            "arjun" -> { basePitch = 1.15f; baseRate = 1.05f }   // 21, younger, thoda fast/high
+            "veer" -> { basePitch = 0.80f; baseRate = 0.90f }   // 26, deep, slow/confident
+            "ananya" -> { basePitch = 1.20f; baseRate = 0.95f } // younger female, soft
+            "isha" -> { basePitch = 1.05f; baseRate = 0.92f }   // 26, warm female
+            else -> { basePitch = 1.0f; baseRate = 0.92f }
+        }
+
+        // NAYA: user ke speed/pitch/language overrides character ke base values ke upar apply hote hain
+        val rateMultiplier = SettingsStore.getSpeechRateMultiplier(context)
+        val pitchOverride = SettingsStore.getPitchOverride(context)
+        val langOverride = SettingsStore.getLanguageOverride(context)
+
+        engine.setSpeechRate((baseRate * rateMultiplier).coerceIn(0.4f, 2.5f))
+        engine.setPitch(if (pitchOverride > 0f) pitchOverride else basePitch)
+        engine.language = when (langOverride) {
+            "en-IN" -> Locale("en", "IN")
+            "hi-IN" -> Locale("hi", "IN")
+            else -> Locale("hi", "IN")
         }
     }
 
@@ -75,6 +96,7 @@ class SpeechHelper(private val context: Context) {
 
     fun speak(text: String) {
         if (ttsReady) {
+            applyVoiceCharacter()
             val cleaned = cleanForSpeech(text)
             val ssml = wrapWithSsml(cleaned)
             tts?.speak(ssml, TextToSpeech.QUEUE_FLUSH, null, "jimi_reply")

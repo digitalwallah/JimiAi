@@ -344,6 +344,7 @@ class WakeWordService : Service() {
             } catch (e: Exception) {
                 "Error: ${e.message}"
             }
+            LastReplyStore.lastReply = reply
             speechHelper.speak(reply)
             updateNotification(reply.take(60))
         }

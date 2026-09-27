@@ -56,8 +56,7 @@ class CommandRouter(private val context: Context) {
 
     private val claude = ClaudeApiClient(SettingsStore.getClaudeKey(context))
     private val youtube = YouTubeHelper(SettingsStore.getYoutubeKey(context))
-
-    suspend fun handle(command: String, recentHistory: String = ""): String {
+suspend fun handle(command: String, recentHistory: String = ""): String {
         QuickCommandParser.tryBrightness(command)?.let { pct ->
             val success = SystemControlHelper.adjustBrightness(context, percent = pct)
             return if (success) "Brightness $pct% kar diya ☀️"
@@ -66,6 +65,14 @@ class CommandRouter(private val context: Context) {
         QuickCommandParser.tryVolume(command)?.let { pct ->
             val success = SystemControlHelper.setVolumePercent(context, pct)
             return if (success) "Volume $pct% kar diya 🔊" else "Volume control nahi ho paaya."
+        }
+
+        // NAYA: offline/local commands (voice speed/pitch/language, flashlight, media, wifi,
+        // calculator, repeat/recent) — inhe Gemini/internet ki zaroorat nahi
+        OfflineIntentRouter.tryHandle(context, command)?.let { return it }
+
+        if (!OfflineIntentRouter.isInternetAvailable(context)) {
+            return "Abhi internet available nahi hai — main basic offline commands (flashlight, volume, WiFi settings, repeat, calculator waghera) kar sakta hoon, baaki ke liye internet chahiye hoga."
         }
 
         val db = JimiDatabase.getInstance(context)

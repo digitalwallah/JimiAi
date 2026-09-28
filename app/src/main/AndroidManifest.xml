@@ -78,6 +78,22 @@
         <activity
             android:name=".PaymentQRActivity"
             android:exported="false" />
+        <service
+    android:name=".JimiAutofillService"
+    android:exported="true"
+    android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+    <intent-filter>
+        <action android:name="android.service.autofill.AutofillService" />
+    </intent-filter>
+    <meta-data
+        android:name="android.autofill"
+        android:resource="@xml/autofill_service_config" />
+</service>
+
+<activity
+    android:name=".AutofillConfirmActivity"
+    android:exported="false"
+    android:theme="@style/Theme.JimiAI" />
 
         <!-- The core Accessibility Service: this is what lets Jimi "see" the screen
              and tap/type on behalf of the user in any app (WhatsApp, YouTube, etc.) -->

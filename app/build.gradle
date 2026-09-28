@@ -68,6 +68,7 @@ dependencies {
 
     implementation 'com.google.mlkit:text-recognition:16.0.1'
     implementation 'com.google.mlkit:text-recognition-devanagari:16.0.1'
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
 }
 
 apply plugin: 'com.google.gms.google-services'

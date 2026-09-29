@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.provider.Settings
-import kotlinx.coroutines.runBlocking
 
 /** Deterministic, fully offline command handling ("Offline Simple Voice & Controls" spec).
  * Ye Gemini/internet ke bina turant execute hote hain, aur CommandRouter.handle() mein Gemini
@@ -26,7 +25,7 @@ object OfflineIntentRouter {
 
     /** Agar command yahin handle ho gaya toh reply string return karta hai, warna null —
      * null milne par CommandRouter aage Gemini classification try karta hai. */
-    fun tryHandle(context: Context, command: String): String? {
+    suspend fun tryHandle(context: Context, command: String): String? {
         val c = command.trim().lowercase()
 
         voiceSettingsMatch(context, c)?.let { return it }
@@ -144,11 +143,11 @@ object OfflineIntentRouter {
 
     // ---------- Repeat / recent commands (Room ke existing ConversationMemory se, koi naya table nahi) ----------
 
-    private fun repeatLastResponse(context: Context): String {
+    private suspend fun repeatLastResponse(context: Context): String {
         LastReplyStore.lastReply?.let { return it }
         return try {
             val db = JimiDatabase.getInstance(context)
-            val last = runBlocking { db.conversationMemoryDao().getRecent(1).firstOrNull() }
+            val last = db.conversationMemoryDao().getRecent(1).firstOrNull()
                 ?: return "Abhi tak koi baat nahi hui hai jo repeat kar sakoon."
             val reply = last.summary.substringAfter("Jimi: ", missingDelimiterValue = last.summary)
             reply.ifBlank { "Kuch yaad nahi mila jo repeat kar sakoon." }
@@ -157,10 +156,10 @@ object OfflineIntentRouter {
         }
     }
 
-    private fun recentCommandsSummary(context: Context): String {
+    private suspend fun recentCommandsSummary(context: Context): String {
         return try {
             val db = JimiDatabase.getInstance(context)
-            val recent = runBlocking { db.conversationMemoryDao().getRecent(5) }
+            val recent = db.conversationMemoryDao().getRecent(5)
             if (recent.isEmpty()) return "Abhi tak koi command history nahi hai."
             recent.reversed().joinToString("\n") { entry ->
                 val userPart = entry.summary.substringAfter("User: ").substringBefore(" | Jimi:")
